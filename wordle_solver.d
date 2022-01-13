@@ -43,7 +43,8 @@ bool[string] applyFilters(bool[string] words, filter[] filters) {
   return res;
 }
 
-void calculateP(ref string word, ref float[] ps, bool[string] wordlist, float p, int depth) {
+void calculateP(ref string word, ref ulong[] ps, bool[string] wordlist, int depth) {
+  //writeln("CalcP depth ", depth, " p ", p, " wordlist ", wordlist);
   foreach(c; EnumMembers!Color) {
     bool[string] new_words;
     
@@ -53,22 +54,28 @@ void calculateP(ref string word, ref float[] ps, bool[string] wordlist, float p,
     f.letter = word[depth];
     new_words = applyFilters(wordlist, [f]);
 
-    float new_p = p * (float(new_words.length) / float(wordlist.length)) ;
+    //writeln("Testing color ", c, " new_words ", new_words);
+    if (new_words.length == 0) {
+      continue;
+    }
     if (depth == 4) {
-      ps ~= new_p;
+      ps ~= new_words.length;
     }  else {
-      calculateP(word, ps, new_words, new_p, depth + 1);
+      calculateP(word, ps, new_words, depth + 1);
     }
   }
 }
 
 float calcWordScore(string word, bool[string] wordlist) {
-  float[] pValues;
-  calculateP(word, pValues, wordlist, 1, 0);
+  //writeln("Calc word score: ", word);
+  ulong[] wordcnts;
+  calculateP(word, wordcnts, wordlist, 0);
   float tot = 0;
-  foreach(p; pValues) {
+  foreach(wordcnt; wordcnts) {
+    double p = double(wordcnt) / double(wordlist.length);
     tot += p*p;
   }
+  //writeln("Score: ", tot);
   return tot;
 }
 
@@ -80,7 +87,7 @@ void main()
   }
   auto allwords = wordlist;
 
-  while(wordlist.length) {
+  while(wordlist.length > 1) {
     // Output remaining
     writeln("Remaining: ", wordlist.length);
     if (wordlist.length < 10) {
@@ -88,18 +95,19 @@ void main()
     }
 
     // Calculate guess
-    float minScore = 1;
-    string minWord;
+    float minScore = allwords.length;
+    string[] minWord;
     foreach(word; allwords.byKey) {
       auto score = calcWordScore(word, wordlist);
       if (score < minScore) {
-	minWord = word;
+	minWord = [];
+	minWord ~= word;
 	minScore = score;
+      } else if (score == minScore) {
+	minWord ~= word;
       }
     }
-    if (minScore < 1) {
-      writeln("Best guess: ", minWord, " p: ", minScore);
-    }
+    writeln("Best guess: ", minWord, " p: ", minScore);
 
     // User input
     writeln("Input a guess: ");
@@ -126,5 +134,9 @@ void main()
     }
     wordlist = applyFilters(wordlist, filters);
   }
-  writeln("No words remaining");
+  if (wordlist.length == 1) {
+    writeln("Found it: ", wordlist.keys[0]);
+  } else {
+    writeln("No words remaining");
+  }
 }
