@@ -76,7 +76,9 @@ float calcWordScore(string word, string[] wordlist) {
   float tot = 0;
   foreach(wordcnt; wordcnts) {
     double p = double(wordcnt) / double(wordlist.length);
-    tot += p*p;
+    if (p > tot) {
+      tot = p;
+    }
   }
   //writeln("Score: ", tot);
   return tot;
@@ -98,11 +100,11 @@ void main()
     }
 
     // Calculate guess
-    float minScore = allwords.length;
+    float minScore;
     string[] minWord;
     foreach(word; allwords) {
       auto score = calcWordScore(word, wordlist);
-      if (score < minScore) {
+      if (score < minScore || minWord.length == 0) {
 	minWord = [];
 	minWord ~= word;
 	minScore = score;
