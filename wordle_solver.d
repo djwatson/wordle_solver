@@ -5,10 +5,14 @@ import std.conv;
 import std.string;
 import std.traits;
 
-enum Color { Black = 'b', Yellow = 'y', Green = 'g' }
+enum Color {
+  Black = 'b',
+  Yellow = 'y',
+  Green = 'g'
+}
 
 auto applyFilter(string[] words, Color color, int position, char letter) {
-  final switch(color) {
+  final switch (color) {
   case Color.Black:
     return words.filter!(a => -1 == indexOf(a, letter)).array;
   case Color.Yellow:
@@ -20,26 +24,25 @@ auto applyFilter(string[] words, Color color, int position, char letter) {
 
 ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max, int depth = 0) {
   string[] new_words;
-  static foreach(c; EnumMembers!Color) {
+  static foreach (c; EnumMembers!Color) {
     new_words = wordlist.applyFilter(c, depth, word[depth]);
 
     if (new_words.length > cur_max) {
       if (depth == 4) {
-	cur_max = new_words.length;
-      }  else {
-	cur_max = max(cur_max, calculateScore(word, new_words, cur_max, depth + 1));
+        cur_max = new_words.length;
+      } else {
+        cur_max = max(cur_max, calculateScore(word, new_words, cur_max, depth + 1));
       }
     }
   }
   return cur_max;
 }
 
-void main()
-{
+void main() {
   auto wordlist = File("wordlist.txt").byLine.map!(to!string).array;
   auto allwords = wordlist;
 
-  while(wordlist.length > 1) {
+  while (wordlist.length > 1) {
     // Output remaining
     writeln("Remaining: ", wordlist.length);
     if (wordlist.length < 10) {
@@ -49,15 +52,15 @@ void main()
     // Calculate guess
     ulong minScore;
     string[] minWord;
-    foreach(word; allwords) {
+    foreach (word; allwords) {
       ulong cur_min = 0;
       auto score = calculateScore(word, wordlist, cur_min);
       if (score < minScore || minWord.length == 0) {
-	minWord = [];
-	minScore = score;
+        minWord = [];
+        minScore = score;
       }
       if (score == minScore) {
-	minWord ~= word;
+        minWord ~= word;
       }
     }
     writeln("Best guess: ", minWord, " p: ", minScore);
@@ -67,7 +70,7 @@ void main()
     auto guess = readln();
     writeln("Input colors:");
     auto colors = readln();
-    for(int i = 0; i < 5; i++) {
+    for (int i = 0; i < 5; i++) {
       wordlist = wordlist.applyFilter(to!Color(colors[i]), i, guess[i]);
     }
   }
