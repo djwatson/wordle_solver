@@ -24,7 +24,8 @@ auto applyFilter(string[] words, Color color, int position, char letter, ulong c
   }
 }
 
-ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max, ref Color[5] used, int depth = 0) {
+ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
+    ref Color[5] used, int depth = 0) {
   if (depth <= 4) {
     foreach (c; EnumMembers!Color) {
       used[depth] = c;
@@ -33,22 +34,22 @@ ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max, ref 
       // TODO: We could optimize greens separately from yellows.
       auto newlist = wordlist;
       if (c == Color.Green) {
-	newlist = wordlist.applyFilter(c, depth, word[depth], 0);
+        newlist = wordlist.applyFilter(c, depth, word[depth], 0);
       }
       if (c == Color.Yellow) {
-	newlist = wordlist.applyFilter(c, depth, word[depth], 1);
+        newlist = wordlist.applyFilter(c, depth, word[depth], 1);
       }
       // End opt
       if (newlist.length > cur_max) {
-	cur_max = max(cur_max, calculateScore(word, newlist, cur_max, used, depth + 1));
+        cur_max = max(cur_max, calculateScore(word, newlist, cur_max, used, depth + 1));
       }
     }
     return cur_max;
   }
-    
 
   foreach (i; 0 .. 5) {
-    auto cnt = iota(5).count!(j => (word[j] == word[i] && (used[j] == Color.Green || used[j] == Color.Yellow)));
+    auto cnt = iota(5).count!(j => (word[j] == word[i] && (used[j] == Color.Green
+        || used[j] == Color.Yellow)));
     wordlist = wordlist.applyFilter(to!Color(used[i]), i, word[i], cnt);
     if (wordlist.length <= cur_max) {
       return cur_max;
@@ -57,22 +58,22 @@ ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max, ref 
   return wordlist.length;
 }
 
-char[5] apply_guess(string guess, string word){
+char[5] apply_guess(string guess, string word) {
   char[5] res;
-  foreach(i; 0..5) {
+  foreach (i; 0 .. 5) {
     if (guess[i] == word[i]) {
       res[i] = 'g';
     } else {
       auto yellowcnt = iota(i).count!(j => res[j] == 'y' && guess[j] == guess[i]);
       auto totyel = iota(5).count!(j => word[j] == guess[i] && word[j] != guess[j]);
       if (totyel > yellowcnt) {
-	res[i] = 'y';
+        res[i] = 'y';
       } else {
-	res[i] = 'b';
+        res[i] = 'b';
       }
     }
   }
-  
+
   return res;
 }
 
@@ -93,13 +94,14 @@ string[] make_guesses(string[] allwords, string[] wordlist) {
       minWord ~= curword;
     }
   }
-  
+
   return minWord;
 }
 
 string[] apply_colors(string guess, string colors, string[] wordlist) {
-  foreach (i; 0..5) {
-    auto cnt = iota(5).count!(j => (guess[j] == guess[i] && (colors[j] == Color.Green || colors[j] == Color.Yellow)));
+  foreach (i; 0 .. 5) {
+    auto cnt = iota(5).count!(j => (guess[j] == guess[i]
+        && (colors[j] == Color.Green || colors[j] == Color.Yellow)));
     wordlist = wordlist.applyFilter(to!Color(colors[i]), i, guess[i], cnt);
   }
   return wordlist;
@@ -109,14 +111,14 @@ bool test_runner = false;
 
 void run_test(string[] wordlist) {
   auto allwords = wordlist;
-  
-  foreach(word; allwords) {
+
+  foreach (word; allwords) {
     wordlist = allwords;
 
     string guess = "raise";
     int iters = 0;
     //writeln("Current word: ", word);
-    while(true) {
+    while (true) {
       iters++;
       auto colors = apply_guess(guess, word);
       wordlist = apply_colors(guess, to!string(colors), wordlist);
@@ -124,7 +126,7 @@ void run_test(string[] wordlist) {
 
       assert(wordlist.length != 0);
       if (wordlist.length <= 1) {
-	break;
+        break;
       }
 
       //writeln("GUesses: ", minWord);
@@ -136,7 +138,7 @@ void run_test(string[] wordlist) {
 
 void run_solver(string[] wordlist) {
   auto allwords = wordlist;
-  
+
   while (wordlist.length > 1) {
     // Output remaining
     writeln("Remaining: ", wordlist.length);
@@ -163,17 +165,13 @@ void run_solver(string[] wordlist) {
 }
 
 void main(string[] args) {
-  auto help = getopt(
-		     args,
-		     "hard",  "Hard mode, must use hint information", &hard_mode,
-		     "tester","Run the solver on all words", &test_runner);
-  if (help.helpWanted)
-  {
-    defaultGetoptPrinter("Some information about the program.",
-      help.options);
+  auto help = getopt(args, "hard", "Hard mode, must use hint information",
+      &hard_mode, "tester", "Run the solver on all words", &test_runner);
+  if (help.helpWanted) {
+    defaultGetoptPrinter("Some information about the program.", help.options);
     return;
   }
- 
+
   auto wordlist = File("wordlist.txt").byLine.map!(to!string).array;
 
   if (test_runner) {
