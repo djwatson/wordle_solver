@@ -7,57 +7,37 @@ import std.traits;
 
 enum Color { Black, Yellow, Green }
 
-struct filter {
+struct filter_t {
   Color color;
   int position;
   char letter;
 }
 
-string[] applyFilters(string[] words, filter[] filters) {
-  bool[string] res;
-  foreach(word; words) {
-    res[word] = true;
-  }
+string[] applyFilters(string[] words, filter_t[] filters) {
+  string[] res = words;
   foreach(f; filters) {
     final switch(f.color) {
     case Color.Black:
-      foreach(word; words) {
-	if (-1 != indexOf(word, f.letter)) {
-	  res.remove(word);
-	}
-      }
+      res = res.filter!(a => -1 == indexOf(a, f.letter)).array;
       break;
     case Color.Yellow:
-      foreach(word; words) {
-	if (-1 == indexOf(word, f.letter)) {
-	  res.remove(word);
-	}
-      }
+      res = res.filter!(a => -1 != indexOf(a, f.letter)).array;
       break;
     case Color.Green:
-      foreach(word; words) {
-	if (word[f.position] != f.letter) {
-	  res.remove(word);
-	}
-      }
+      res = res.filter!(a => f.letter == a[f.position]).array;
       break;
     }
   }
-  return res.keys;
+  return res;
 }
 
 void calculateP(ref string word, ref ulong[] ps, string[] wordlist, int depth) {
-  //writeln("CalcP depth ", depth, " p ", p, " wordlist ", wordlist);
   foreach(c; EnumMembers!Color) {
     string[] new_words;
     
-    filter f;
-    f.position = depth;
-    f.color = c;
-    f.letter = word[depth];
+    filter_t f = {c, depth, word[depth]};
     new_words = applyFilters(wordlist, [f]);
 
-    //writeln("Testing color ", c, " new_words ", new_words);
     if (new_words.length == 0) {
       continue;
     }
@@ -119,9 +99,9 @@ void main()
     auto guess = readln();
     writeln("Input colors:");
     auto colors = readln();
-    filter[] filters;
+    filter_t[] filters;
     for(int i = 0; i < 5; i++) {
-      filter f;
+      filter_t f;
       f.position = i;
       final switch(colors[i]) {
       case 'b':
