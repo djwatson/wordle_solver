@@ -14,23 +14,24 @@ to solve a bit faster in some cases. For example, if the solution is
 
 ```
 Remaining: 2315
-Best guesses: ["arise", "raise"]
+Best guesses: ["arise", "reais", "aesir", "raise", "serai"]
 Input a guess: 
 raise
 Input colors:
 bbbby
 Remaining: 121
-Best guesses: ["towel"]
+Best guesses: ["denet"]
 Input a guess: 
-towel
+denet
 Input colors:
-bbbyb
-Remaining: 10
-Best guesses: ["bench", "hedge", "fence"]
+bgbyb
+Remaining: 4
+["beech", "beefy", "geeky", "leech"]
+Best guesses: ["blash", "busky", "loggy", "pubic", "tubby", "kahal", "bully", "heben", "kylin", "oflag"]
 Input a guess: 
-bench
+blash
 Input colors:
-bgbbb
+bbbbb
 Found it: geeky
 ```
 
@@ -49,5 +50,5 @@ geeky
 ```
 
 Although overall these doesn't seem to matter much and the code would
-be simpler.  Also, try 'Agree', which is solved in 2 guesses, while
-Tom's takes 3.
+be simpler.  
+

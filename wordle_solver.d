@@ -123,11 +123,12 @@ string[] apply_colors(string guess, string colors, string[] wordlist) {
 bool test_runner = false;
 
 // Run the solver on each dictionary word.
-void run_test(string[] wordlist) {
-  auto allwords = wordlist;
+void run_test(string[] wordlist, string[] wordlist2) {
+  auto allwords = wordlist2;
+  auto all_solutions = wordlist;
 
-  foreach (word; allwords) {
-    wordlist = allwords;
+  foreach (word; all_solutions) {
+    wordlist = all_solutions;
 
     string guess = "raise";
     int iters = 0;
@@ -151,8 +152,8 @@ void run_test(string[] wordlist) {
 }
 
 // Just a command-line UI to the solver.
-void run_solver(string[] wordlist) {
-  auto allwords = wordlist;
+void run_solver(string[] wordlist, string[] wordlist2) {
+  auto allwords = wordlist2;
 
   while (wordlist.length > 1) {
     // Output remaining
@@ -188,11 +189,12 @@ void main(string[] args) {
   }
 
   auto wordlist = File("wordlist.txt").byLine.map!(to!string).array;
+  auto wordlist2 = File("wordlist3_out.txt").byLine.map!(to!string).array;
 
   if (test_runner) {
-    run_test(wordlist);
+    run_test(wordlist, wordlist2);
   } else {
-    run_solver(wordlist);
+    run_solver(wordlist, wordlist2);
   }
 
 }
