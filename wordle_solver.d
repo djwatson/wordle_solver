@@ -13,26 +13,29 @@ struct filter {
   char letter;
 }
 
-bool[string] applyFilters(bool[string] words, filter[] filters) {
-  bool[string] res = words.dup;
+string[] applyFilters(string[] words, filter[] filters) {
+  bool[string] res;
+  foreach(word; words) {
+    res[word] = true;
+  }
   foreach(f; filters) {
     final switch(f.color) {
     case Color.Black:
-      foreach(word; res.keys) {
+      foreach(word; words) {
 	if (-1 != indexOf(word, f.letter)) {
 	  res.remove(word);
 	}
       }
       break;
     case Color.Yellow:
-      foreach(word; res.keys) {
+      foreach(word; words) {
 	if (-1 == indexOf(word, f.letter)) {
 	  res.remove(word);
 	}
       }
       break;
     case Color.Green:
-      foreach(word; res.keys) {
+      foreach(word; words) {
 	if (word[f.position] != f.letter) {
 	  res.remove(word);
 	}
@@ -40,13 +43,13 @@ bool[string] applyFilters(bool[string] words, filter[] filters) {
       break;
     }
   }
-  return res;
+  return res.keys;
 }
 
-void calculateP(ref string word, ref ulong[] ps, bool[string] wordlist, int depth) {
+void calculateP(ref string word, ref ulong[] ps, string[] wordlist, int depth) {
   //writeln("CalcP depth ", depth, " p ", p, " wordlist ", wordlist);
   foreach(c; EnumMembers!Color) {
-    bool[string] new_words;
+    string[] new_words;
     
     filter f;
     f.position = depth;
@@ -66,7 +69,7 @@ void calculateP(ref string word, ref ulong[] ps, bool[string] wordlist, int dept
   }
 }
 
-float calcWordScore(string word, bool[string] wordlist) {
+float calcWordScore(string word, string[] wordlist) {
   //writeln("Calc word score: ", word);
   ulong[] wordcnts;
   calculateP(word, wordcnts, wordlist, 0);
@@ -81,23 +84,23 @@ float calcWordScore(string word, bool[string] wordlist) {
 
 void main()
 {
-  bool[string] wordlist;
+  string[] wordlist;
   foreach(line; File("wordlist.txt").byLine) {
-    wordlist[to!string(line)] = true;
+    wordlist ~= to!string(line);
   }
-  auto allwords = wordlist;
+  auto allwords = wordlist.dup;
 
   while(wordlist.length > 1) {
     // Output remaining
     writeln("Remaining: ", wordlist.length);
     if (wordlist.length < 10) {
-      writeln(wordlist.byKey);
+      writeln(wordlist);
     }
 
     // Calculate guess
     float minScore = allwords.length;
     string[] minWord;
-    foreach(word; allwords.byKey) {
+    foreach(word; allwords) {
       auto score = calcWordScore(word, wordlist);
       if (score < minScore) {
 	minWord = [];
@@ -135,7 +138,7 @@ void main()
     wordlist = applyFilters(wordlist, filters);
   }
   if (wordlist.length == 1) {
-    writeln("Found it: ", wordlist.keys[0]);
+    writeln("Found it: ", wordlist[0]);
   } else {
     writeln("No words remaining");
   }
