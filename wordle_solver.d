@@ -18,21 +18,20 @@ auto applyFilter(string[] words, Color color, int position, char letter) {
   }
 }
 
-ulong calculateScore(ref string word, string[] wordlist, int depth = 0) {
-  ulong res = 0;
+ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max, int depth = 0) {
   string[] new_words;
   static foreach(c; EnumMembers!Color) {
     new_words = wordlist.applyFilter(c, depth, word[depth]);
 
-    if (new_words.length != 0) {
+    if (new_words.length > cur_max) {
       if (depth == 4) {
-	res = max(res, new_words.length);
+	cur_max = new_words.length;
       }  else {
-	res = max(res, calculateScore(word, new_words, depth + 1));
+	cur_max = max(cur_max, calculateScore(word, new_words, cur_max, depth + 1));
       }
     }
   }
-  return res;
+  return cur_max;
 }
 
 void main()
@@ -51,7 +50,8 @@ void main()
     ulong minScore;
     string[] minWord;
     foreach(word; allwords) {
-      auto score = calculateScore(word, wordlist);
+      ulong cur_min = 0;
+      auto score = calculateScore(word, wordlist, cur_min);
       if (score < minScore || minWord.length == 0) {
 	minWord = [];
 	minScore = score;
