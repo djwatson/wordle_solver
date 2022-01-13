@@ -13,6 +13,10 @@ enum Color {
   Green = 'g'
 }
 
+// Apply a filter based on color to the wordlist, returning a new wordlist.
+// Black and Yellow filters must take in to account the number of letters already used
+// for that particular type, since this indicates how many of each letter there are
+// if there are multiples.
 auto applyFilter(string[] words, Color color, int position, char letter, ulong cnt) {
   final switch (color) {
   case Color.Black:
@@ -24,14 +28,18 @@ auto applyFilter(string[] words, Color color, int position, char letter, ulong c
   }
 }
 
+// Return the largest partition that can be made based on this word guess.
+// The largest partition represents the worst-case number of words left to filter.
 ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
     ref Color[5] used, int depth = 0) {
+
+  // Permutations, with an optimization for greens and yellows that
+  // can be applied immediately.
   if (depth <= 4) {
     foreach (c; EnumMembers!Color) {
       used[depth] = c;
 
       // Optimize for greens/yellows immediately. Blacks must wait for full count.
-      // TODO: We could optimize greens separately from yellows.
       auto newlist = wordlist;
       if (c == Color.Green) {
         newlist = wordlist.applyFilter(c, depth, word[depth], 0);
@@ -47,6 +55,8 @@ ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
     return cur_max;
   }
 
+  // Perumtation fully calculated: Now filter the wordlist.
+  // We can end early if we're smaller than the current max list.
   foreach (i; 0 .. 5) {
     auto cnt = iota(5).count!(j => (word[j] == word[i] && (used[j] == Color.Green
         || used[j] == Color.Yellow)));
@@ -58,6 +68,7 @@ ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
   return wordlist.length;
 }
 
+// For the tester: Return colors based on a word and guess.
 char[5] apply_guess(string guess, string word) {
   char[5] res;
   foreach (i; 0 .. 5) {
@@ -79,6 +90,7 @@ char[5] apply_guess(string guess, string word) {
 
 bool hard_mode = false;
 
+// Return optimal guesses based on the remaining wordlist
 string[] make_guesses(string[] allwords, string[] wordlist) {
   ulong minScore;
   string[] minWord;
@@ -98,6 +110,7 @@ string[] make_guesses(string[] allwords, string[] wordlist) {
   return minWord;
 }
 
+// Apply the given colors to the wordlist via filtering, returns new smaller wordlist.
 string[] apply_colors(string guess, string colors, string[] wordlist) {
   foreach (i; 0 .. 5) {
     auto cnt = iota(5).count!(j => (guess[j] == guess[i]
@@ -109,6 +122,7 @@ string[] apply_colors(string guess, string colors, string[] wordlist) {
 
 bool test_runner = false;
 
+// Run the solver on each dictionary word.
 void run_test(string[] wordlist) {
   auto allwords = wordlist;
 
@@ -136,6 +150,7 @@ void run_test(string[] wordlist) {
   }
 }
 
+// Just a command-line UI to the solver.
 void run_solver(string[] wordlist) {
   auto allwords = wordlist;
 
