@@ -5,6 +5,7 @@ import std.conv;
 import std.string;
 import std.traits;
 import std.random;
+import std.getopt;
 
 enum Color {
   Black = 'b',
@@ -61,21 +62,9 @@ char[5] apply_guess(string guess, string word){
   foreach(i; 0..5) {
     if (guess[i] == word[i]) {
       res[i] = 'g';
-      
     } else {
-      int yellowcnt = 0;
-      foreach(j; 0..i) {
-	if (res[j] == 'y' && guess[j] == guess[i]) {
-	  yellowcnt++;
-	}
-      }
-      //writeln("CHecking pos ", i, " letter ", guess[i], " cnt ", word.count(guess[i]), " yell ", yellowcnt);
-      int totyel = 0;
-      foreach(j; 0..5) {
-	if (word[j] == guess[i] && word[j] != guess[j]) {
-	  totyel++;
-	}
-      }
+      auto yellowcnt = iota(i).count!(j => res[j] == 'y' && guess[j] == guess[i]);
+      auto totyel = iota(5).count!(j => word[j] == guess[i] && word[j] != guess[j]);
       if (totyel > yellowcnt) {
 	res[i] = 'y';
       } else {
@@ -87,11 +76,40 @@ char[5] apply_guess(string guess, string word){
   return res;
 }
 
-void main() {
-  auto wordlist = File("wordlist.txt").byLine.map!(to!string).array;
-  auto allwords = wordlist;
+bool hard_mode = false;
 
-  if (0) {
+string[] make_guesses(string[] allwords, string[] wordlist) {
+  ulong minScore;
+  string[] minWord;
+  foreach (curword; hard_mode ? wordlist : allwords) {
+    ulong cur_min = 0;
+    Color[5] used;
+    auto score = calculateScore(curword, wordlist, cur_min, used);
+    if (score < minScore || minWord.length == 0) {
+      minWord = [];
+      minScore = score;
+    }
+    if (score == minScore) {
+      minWord ~= curword;
+    }
+  }
+  
+  return minWord;
+}
+
+string[] apply_colors(string guess, string colors, string[] wordlist) {
+  foreach (i; 0..5) {
+    auto cnt = iota(5).count!(j => (guess[j] == guess[i] && (colors[j] == Color.Green || colors[j] == Color.Yellow)));
+    wordlist = wordlist.applyFilter(to!Color(colors[i]), i, guess[i], cnt);
+  }
+  return wordlist;
+}
+
+bool test_runner = false;
+
+void run_test(string[] wordlist) {
+  auto allwords = wordlist;
+  
   foreach(word; allwords) {
     wordlist = allwords;
 
@@ -101,38 +119,24 @@ void main() {
     while(true) {
       iters++;
       auto colors = apply_guess(guess, word);
-      foreach (i; 0..5) {
-	auto cnt = iota(5).count!(j => (guess[j] == guess[i] && (colors[j] == Color.Green || colors[j] == Color.Yellow)));
-	wordlist = wordlist.applyFilter(to!Color(colors[i]), i, guess[i], cnt);
-      }
+      wordlist = apply_colors(guess, to!string(colors), wordlist);
       //writeln("  guess ", iters, ": ", guess, " colors: ", colors, " size: ", wordlist.length);
 
       assert(wordlist.length != 0);
       if (wordlist.length <= 1) {
 	break;
       }
-      
-      ulong minScore;
-      string[] minWord;
-      foreach (curword; allwords) {
-	ulong cur_min = 0;
-	Color[5] used;
-	auto score = calculateScore(curword, wordlist, cur_min, used);
-	if (score < minScore || minWord.length == 0) {
-	  minWord = [];
-	  minScore = score;
-	}
-	if (score == minScore) {
-	  minWord ~= curword;
-	}
-      }
+
       //writeln("GUesses: ", minWord);
-      guess = minWord[0];
+      guess = make_guesses(allwords, wordlist)[0];
     }
     writeln(word, " took iters ", iters);
   }
-  }
+}
 
+void run_solver(string[] wordlist) {
+  auto allwords = wordlist;
+  
   while (wordlist.length > 1) {
     // Output remaining
     writeln("Remaining: ", wordlist.length);
@@ -141,35 +145,41 @@ void main() {
     }
 
     // Calculate guess
-    ulong minScore;
-    string[] minWord;
-    foreach (word; wordlist) {
-      ulong cur_min = 0;
-      Color[5] used;
-      auto score = calculateScore(word, wordlist, cur_min, used);
-      if (score < minScore || minWord.length == 0) {
-        minWord = [];
-        minScore = score;
-      }
-      if (score == minScore) {
-        minWord ~= word;
-      }
-    }
-    writeln("Best guess: ", minWord.randomShuffle().take(10), " p: ", minScore);
+    string[] minWord = make_guesses(allwords, wordlist);
+    writeln("Best guesses: ", minWord.randomShuffle().take(10));
 
     // User input
     writeln("Input a guess: ");
     auto guess = readln();
     writeln("Input colors:");
     auto colors = readln();
-    foreach (i; 0..5) {
-      auto cnt = iota(5).count!(j => (guess[j] == guess[i] && (colors[j] == Color.Green || colors[j] == Color.Yellow)));
-      wordlist = wordlist.applyFilter(to!Color(colors[i]), i, guess[i], cnt);
-    }
+    wordlist = apply_colors(guess, colors, wordlist);
   }
   if (wordlist.length == 1) {
     writeln("Found it: ", wordlist[0]);
   } else {
     writeln("No words remaining");
   }
+}
+
+void main(string[] args) {
+  auto help = getopt(
+		     args,
+		     "hard",  "Hard mode, must use hint information", &hard_mode,
+		     "tester","Run the solver on all words", &test_runner);
+  if (help.helpWanted)
+  {
+    defaultGetoptPrinter("Some information about the program.",
+      help.options);
+    return;
+  }
+ 
+  auto wordlist = File("wordlist.txt").byLine.map!(to!string).array;
+
+  if (test_runner) {
+    run_test(wordlist);
+  } else {
+    run_solver(wordlist);
+  }
+
 }
