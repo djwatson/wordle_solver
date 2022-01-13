@@ -28,7 +28,8 @@ ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max, ref 
     foreach (c; EnumMembers!Color) {
       used[depth] = c;
 
-      // Optimize for greens/yellows immediately
+      // Optimize for greens/yellows immediately. Blacks must wait for full count.
+      // TODO: We could optimize greens separately from yellows.
       auto newlist = wordlist;
       if (c == Color.Green) {
 	newlist = wordlist.applyFilter(c, depth, word[depth], 0);
@@ -45,13 +46,8 @@ ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max, ref 
   }
     
 
-  for (int i = 0; i < 5; i++) {
-    int cnt = 0;
-    for(int j = 0; j < 5; j++) {
-      if (word[j] == word[i] && (used[j] == Color.Green || used[j] == Color.Yellow)) {
-	cnt++;
-      }
-    }
+  foreach (i; 0 .. 5) {
+    auto cnt = iota(5).count!(j => (word[j] == word[i] && (used[j] == Color.Green || used[j] == Color.Yellow)));
     wordlist = wordlist.applyFilter(to!Color(used[i]), i, word[i], cnt);
     if (wordlist.length <= cur_max) {
       return cur_max;
@@ -93,13 +89,8 @@ void main() {
     auto guess = readln();
     writeln("Input colors:");
     auto colors = readln();
-    for (int i = 0; i < 5; i++) {
-      int cnt = 0;
-      for(int j = 0; j < 5; j++) {
-	if (guess[j] == guess[i] && (colors[j] == Color.Green || colors[j] == Color.Yellow)) {
-	  cnt++;
-	}
-      }
+    foreach (i; 0..5) {
+      auto cnt = iota(5).count!(j => (guess[j] == guess[i] && (colors[j] == Color.Green || colors[j] == Color.Yellow)));
       wordlist = wordlist.applyFilter(to!Color(colors[i]), i, guess[i], cnt);
     }
   }
