@@ -26,17 +26,6 @@ ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max, ref 
   if (depth <= 4) {
     foreach (c; EnumMembers!Color) {
       used[depth] = c;
-      // Optimize for no yellows after blacks
-      bool found_black = false;
-      if (c == Color.Yellow) {
-	for(int i = 0; i < depth; i++) {
-	  if (used[i] == Color.Black && used[i] == word[depth]) {
-	    found_black = true;
-	  }
-	}
-	if (found_black) continue;
-      }
-      // End opt
 
       // Optimize for greens/yellows immediately
       auto newlist = wordlist;
