@@ -5,72 +5,40 @@ import std.conv;
 import std.string;
 import std.traits;
 
-enum Color { Black, Yellow, Green }
+enum Color { Black = 'b', Yellow = 'y', Green = 'g' }
 
-struct filter_t {
-  Color color;
-  int position;
-  char letter;
+auto applyFilter(string[] words, Color color, int position, char letter) {
+  final switch(color) {
+  case Color.Black:
+    return words.filter!(a => -1 == indexOf(a, letter)).array;
+  case Color.Yellow:
+    return words.filter!(a => -1 != indexOf(a, letter)).array;
+  case Color.Green:
+    return words.filter!(a => letter == a[position]).array;
+  }
 }
 
-string[] applyFilters(string[] words, filter_t[] filters) {
-  string[] res = words;
-  foreach(f; filters) {
-    final switch(f.color) {
-    case Color.Black:
-      res = res.filter!(a => -1 == indexOf(a, f.letter)).array;
-      break;
-    case Color.Yellow:
-      res = res.filter!(a => -1 != indexOf(a, f.letter)).array;
-      break;
-    case Color.Green:
-      res = res.filter!(a => f.letter == a[f.position]).array;
-      break;
+ulong calculateScore(ref string word, string[] wordlist, int depth = 0) {
+  ulong res = 0;
+  string[] new_words;
+  static foreach(c; EnumMembers!Color) {
+    new_words = wordlist.applyFilter(c, depth, word[depth]);
+
+    if (new_words.length != 0) {
+      if (depth == 4) {
+	res = max(res, new_words.length);
+      }  else {
+	res = max(res, calculateScore(word, new_words, depth + 1));
+      }
     }
   }
   return res;
 }
 
-void calculateP(ref string word, ref ulong[] ps, string[] wordlist, int depth) {
-  foreach(c; EnumMembers!Color) {
-    string[] new_words;
-    
-    filter_t f = {c, depth, word[depth]};
-    new_words = applyFilters(wordlist, [f]);
-
-    if (new_words.length == 0) {
-      continue;
-    }
-    if (depth == 4) {
-      ps ~= new_words.length;
-    }  else {
-      calculateP(word, ps, new_words, depth + 1);
-    }
-  }
-}
-
-float calcWordScore(string word, string[] wordlist) {
-  //writeln("Calc word score: ", word);
-  ulong[] wordcnts;
-  calculateP(word, wordcnts, wordlist, 0);
-  float tot = 0;
-  foreach(wordcnt; wordcnts) {
-    double p = double(wordcnt) / double(wordlist.length);
-    if (p > tot) {
-      tot = p;
-    }
-  }
-  //writeln("Score: ", tot);
-  return tot;
-}
-
 void main()
 {
-  string[] wordlist;
-  foreach(line; File("wordlist.txt").byLine) {
-    wordlist ~= to!string(line);
-  }
-  auto allwords = wordlist.dup;
+  auto wordlist = File("wordlist.txt").byLine.map!(to!string).array;
+  auto allwords = wordlist;
 
   while(wordlist.length > 1) {
     // Output remaining
@@ -80,15 +48,15 @@ void main()
     }
 
     // Calculate guess
-    float minScore;
+    ulong minScore;
     string[] minWord;
     foreach(word; allwords) {
-      auto score = calcWordScore(word, wordlist);
+      auto score = calculateScore(word, wordlist);
       if (score < minScore || minWord.length == 0) {
 	minWord = [];
-	minWord ~= word;
 	minScore = score;
-      } else if (score == minScore) {
+      }
+      if (score == minScore) {
 	minWord ~= word;
       }
     }
@@ -99,25 +67,9 @@ void main()
     auto guess = readln();
     writeln("Input colors:");
     auto colors = readln();
-    filter_t[] filters;
     for(int i = 0; i < 5; i++) {
-      filter_t f;
-      f.position = i;
-      final switch(colors[i]) {
-      case 'b':
-	f.color = Color.Black;
-	break;
-      case 'g':
-	f.color = Color.Green;
-	break;
-      case 'y':
-	f.color = Color.Yellow;
-	break;
-      }
-      f.letter = guess[i];
-      filters ~= f;
+      wordlist = wordlist.applyFilter(to!Color(colors[i]), i, guess[i]);
     }
-    wordlist = applyFilters(wordlist, filters);
   }
   if (wordlist.length == 1) {
     writeln("Found it: ", wordlist[0]);
