@@ -15,9 +15,9 @@ enum Color {
 auto applyFilter(string[] words, Color color, int position, char letter, ulong cnt) {
   final switch (color) {
   case Color.Black:
-    return words.filter!(a => a.count(letter) <= cnt).array;
+    return words.filter!(a => (a.count(letter) <= cnt) && letter != a[position]).array;
   case Color.Yellow:
-    return words.filter!(a => a.count(letter) >= cnt).array;
+    return words.filter!(a => (a.count(letter) >= cnt) && letter != a[position]).array;
   case Color.Green:
     return words.filter!(a => letter == a[position]).array;
   }
