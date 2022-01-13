@@ -4,6 +4,7 @@ import std.range;
 import std.conv;
 import std.string;
 import std.traits;
+import std.random;
 
 enum Color {
   Black = 'b',
@@ -85,7 +86,7 @@ void main() {
         minWord ~= word;
       }
     }
-    writeln("Best guess: ", minWord.take(10), " p: ", minScore);
+    writeln("Best guess: ", minWord.randomShuffle().take(10), " p: ", minScore);
 
     // User input
     writeln("Input a guess: ");
