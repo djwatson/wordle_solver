@@ -6,7 +6,6 @@ import std.string;
 import std.traits;
 import std.random;
 import std.getopt;
-import std.parallelism;
 
 enum Color {
   Black = 'b',
@@ -31,8 +30,8 @@ auto applyFilter(string[] words, Color color, int position, char letter, ulong c
 
 // Return the largest partition that can be made based on this word guess.
 // The largest partition represents the worst-case number of words left to filter.
-ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
-    ref Color[5] used, int depth = 0) {
+bool calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
+		    ref Color[5] used, int depth = 0, ulong beta = ulong.max) {
 
   // Permutations, with an optimization for greens and yellows that
   // can be applied immediately.
@@ -50,10 +49,16 @@ ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
       }
       // End opt
       if (newlist.length > cur_max) {
-        cur_max = max(cur_max, calculateScore(word, newlist, cur_max, used, depth + 1));
+	auto fast_out = calculateScore(word, newlist, cur_max, used, depth + 1, beta);
+	if (fast_out) {
+	  return fast_out;
+	}
       }
     }
-    return cur_max;
+    if (cur_max > beta) {
+      return true;
+    }
+    return false;
   }
 
   // Perumtation fully calculated: Now filter the wordlist.
@@ -62,11 +67,18 @@ ulong calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
     auto cnt = iota(5).count!(j => (word[j] == word[i] && (used[j] == Color.Green
         || used[j] == Color.Yellow)));
     wordlist = wordlist.applyFilter(to!Color(used[i]), i, word[i], cnt);
-    if (wordlist.length <= cur_max) {
-      return cur_max;
+    if (wordlist.length < cur_max) {
+      if (cur_max > beta) {
+	return true;
+      }
+      return false;
     }
   }
-  return wordlist.length;
+  cur_max = max(cur_max, wordlist.length);
+  if (cur_max > beta) {
+    return true;
+  }
+  return false;
 }
 
 // For the tester: Return colors based on a word and guess.
@@ -96,14 +108,17 @@ struct guess_result {
   ulong score;
 }
 
-guess_result make_guess(string word, string[] wordlist) {
-  ulong cur_min = 0;
+guess_result make_guess(string word, string[] wordlist, ulong beta = ulong.max) {
+  ulong cur_max = 0;
   Color[5] used;
-  auto score = calculateScore(word, wordlist, cur_min, used);
-  return guess_result([word], score);
+  calculateScore(word, wordlist, cur_max, used, 0, beta);
+  return guess_result([word], cur_max);
 }
 
+string[] cur_list;
 guess_result guess_reducer(guess_result a, guess_result b) {
+  assert(b.word.length == 1);
+  b.score = make_guess(b.word[0], cur_list, a.score).score;
   if (a.score < b.score) {
     return a;
   } else if (b.score < a.score) {
@@ -117,17 +132,10 @@ guess_result guess_reducer(guess_result a, guess_result b) {
 // Return optimal guesses based on the remaining wordlist
 string[] make_guesses(string[] allwords, string[] wordlist) {
   auto list = hard_mode ? wordlist : allwords;
-  guess_result[] raw_results;
-  foreach(word; parallel(list)) {
-    auto res = make_guess(word, wordlist);
-    synchronized {
-      raw_results ~= res;
-    }
-  }
-  //auto raw_results = taskPool.amap!(word => make_guess(word[0], word[1]))(zip(list, wordlister));
-  auto results = raw_results.reduce!guess_reducer;
-  ///auto results = taskPool.fold!((word1, word2) => guess_reducer(make_guess(word1, wordlist), make_guess(word2, wordlist)))(list);
-    //auto results = list.map!(word => make_guess(word, wordlist)).reduce!guess_reducer;
+  cur_list = wordlist;
+  guess_result seed;
+  seed.score = ulong.max;
+  auto results = list.map!(a => guess_result([a], 0)).fold!guess_reducer(seed);
   return results.word;
 }
 
