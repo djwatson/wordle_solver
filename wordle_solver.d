@@ -117,7 +117,17 @@ guess_result guess_reducer(guess_result a, guess_result b) {
 // Return optimal guesses based on the remaining wordlist
 string[] make_guesses(string[] allwords, string[] wordlist) {
   auto list = hard_mode ? wordlist : allwords;
-  auto results = list.map!(word => make_guess(word, wordlist)).reduce!guess_reducer;
+  guess_result[] raw_results;
+  foreach(word; parallel(list)) {
+    auto res = make_guess(word, wordlist);
+    synchronized {
+      raw_results ~= res;
+    }
+  }
+  //auto raw_results = taskPool.amap!(word => make_guess(word[0], word[1]))(zip(list, wordlister));
+  auto results = raw_results.reduce!guess_reducer;
+  ///auto results = taskPool.fold!((word1, word2) => guess_reducer(make_guess(word1, wordlist), make_guess(word2, wordlist)))(list);
+    //auto results = list.map!(word => make_guess(word, wordlist)).reduce!guess_reducer;
   return results.word;
 }
 
