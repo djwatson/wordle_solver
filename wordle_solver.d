@@ -6,6 +6,7 @@ import std.string;
 import std.traits;
 import std.random;
 import std.getopt;
+import std.parallelism;
 
 enum Color {
   Black = 'b',
@@ -90,24 +91,34 @@ char[5] apply_guess(string guess, string word) {
 
 bool hard_mode = false;
 
+struct guess_result {
+  string[] word;
+  ulong score;
+}
+
+guess_result make_guess(string word, string[] wordlist) {
+  ulong cur_min = 0;
+  Color[5] used;
+  auto score = calculateScore(word, wordlist, cur_min, used);
+  return guess_result([word], score);
+}
+
+guess_result guess_reducer(guess_result a, guess_result b) {
+  if (a.score < b.score) {
+    return a;
+  } else if (b.score < a.score) {
+    return b;
+  } else {
+    a.word ~= b.word;
+    return a;
+  }
+}
+
 // Return optimal guesses based on the remaining wordlist
 string[] make_guesses(string[] allwords, string[] wordlist) {
-  ulong minScore;
-  string[] minWord;
-  foreach (curword; hard_mode ? wordlist : allwords) {
-    ulong cur_min = 0;
-    Color[5] used;
-    auto score = calculateScore(curword, wordlist, cur_min, used);
-    if (score < minScore || minWord.length == 0) {
-      minWord = [];
-      minScore = score;
-    }
-    if (score == minScore) {
-      minWord ~= curword;
-    }
-  }
-
-  return minWord;
+  auto list = hard_mode ? wordlist : allwords;
+  auto results = list.map!(word => make_guess(word, wordlist)).reduce!guess_reducer;
+  return results.word;
 }
 
 // Apply the given colors to the wordlist via filtering, returns new smaller wordlist.
