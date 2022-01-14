@@ -48,11 +48,9 @@ bool calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
         newlist = wordlist.applyFilter(c, depth, word[depth], 1);
       }
       // End opt
-      if (newlist.length > cur_max) {
-	auto fast_out = calculateScore(word, newlist, cur_max, used, depth + 1, beta);
-	if (fast_out) {
-	  return fast_out;
-	}
+      auto fast_out = calculateScore(word, newlist, cur_max, used, depth + 1, beta);
+      if (fast_out) {
+	return fast_out;
       }
     }
     if (cur_max > beta) {
@@ -67,12 +65,6 @@ bool calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
     auto cnt = iota(5).count!(j => (word[j] == word[i] && (used[j] == Color.Green
         || used[j] == Color.Yellow)));
     wordlist = wordlist.applyFilter(to!Color(used[i]), i, word[i], cnt);
-    if (wordlist.length < cur_max) {
-      if (cur_max > beta) {
-	return true;
-      }
-      return false;
-    }
   }
   cur_max = max(cur_max, wordlist.length);
   if (cur_max > beta) {
