@@ -73,3 +73,8 @@ geeky
 Although overall these doesn't seem to matter much and the code would
 be simpler.  
 
+Best guesses at level 2:
+tolar aloes
+
+hard:
+stole
