@@ -155,10 +155,14 @@ bool calculateScore(ref string word, ref ulong cur_max,
 
   // Perumtation fully calculated: Now filter the wordlist.
   // We can end early if we're smaller than the current max list.
+  int filters_applied = 0;
   foreach (i; 0 .. 5) {
     auto cnt = iota(5).count!(j => (word[j] == word[i] && (used[j] == Color.Green
         || used[j] == Color.Yellow)));
-    cur_list.applyFilter(to!Color(used[i]), i, word[i], cnt);
+    if (used[i] != Color.Green) {
+      cur_list.applyFilter(to!Color(used[i]), i, word[i], cnt);
+      filters_applied++;
+    }
   }
   if (cur_depth > 0) {
     cur_depth--;
@@ -182,7 +186,7 @@ bool calculateScore(ref string word, ref ulong cur_max,
   } else {
     cur_max = max(cur_max, cur_list.length);
   }
-  foreach(i; 0..5) {
+  foreach(i; 0..filters_applied) {
     cur_list.popFilter();
   }
 
@@ -246,7 +250,7 @@ guess_result guess_reducer(guess_result a, guess_result b) {
     
       //}
       a.word ~= b.word;
-    writeln("New best guess: ", a);
+      writeln("New best guess: ", a);
     return a;
   }
 }
@@ -317,7 +321,7 @@ void run_solver(string[] wordlist, string[] wordlist2) {
 
     // Calculate guess
     string[] minWord = make_guesses(allwords, wordlist);
-    writeln("Best guesses: ", minWord.randomShuffle().take(10));
+    writeln("Best guesses: ", minWord.take(10));
 
     // User input
     writeln("Input a guess: ");
