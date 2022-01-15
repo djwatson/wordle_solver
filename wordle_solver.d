@@ -22,27 +22,13 @@ class wordlist_t {
   ushort[] filter_lengths;
 
   this(string[] wordlist) {
-    ushort[] new_filter = iota(wordlist.length).map!(a => cast(ushort)a).array;
+    filters ~= iota(wordlist.length).map!(a => cast(ushort)a).array;
     filter_lengths ~= cast(ushort)wordlist.length;
     foreach (word; wordlist) {
-      char[5] newword;
-      newword = word;
+      char[5] newword = word;
       words ~= newword;
-      ubyte[26] new_counts;
-      foreach (letter; 0 .. 26) {
-        new_counts[letter] = cast(ubyte) word.count(letter + 'a');
-      }
-      letter_counts ~= new_counts;
+      letter_counts ~= iota(26).map!(letter => cast(ubyte)word.count(letter + 'a')).staticArray!26;
     }
-    filters ~= new_filter;
-  }
-
-  string[] get_wordlist() {
-    string[] res;
-    foreach (wordpos; filters[filter_cnt]) {
-      res ~= to!string(words[wordpos]);
-    }
-    return res;
   }
 
   void popFilter() {
@@ -165,7 +151,8 @@ bool calculateScore(ref string word, ref ulong cur_max, ref Color[5] used,
   }
   if (cur_depth > 0) {
     cur_depth--;
-    auto list = hard_mode ? cur_list.get_wordlist() : allwords;
+    //auto list = hard_mode ? cur_list.get_wordlist() : allwords;
+    auto list = allwords;
     ulong cur_min = ulong.max;
 
     foreach (word2; list) {
