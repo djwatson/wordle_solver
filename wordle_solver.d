@@ -46,11 +46,7 @@ class wordlist_t {
   }
 
   iter opSlice() {
-    iter i;
-    i.wordlist = this;
-    i.filter_cnt = this.filter_cnt;
-    i.pos = 0;
-    return i;
+    return iter(this, this.filter_cnt, 0);
   }
 
   ulong length() {
@@ -140,15 +136,7 @@ bool calculateScore(ref string word, ref ulong cur_max, ref Color[5] used,
 
   // Perumtation fully calculated: Now filter the wordlist.
   // We can end early if we're smaller than the current max list.
-  int filters_applied = 0;
-  foreach (i; 0 .. 5) {
-    auto cnt = iota(5).count!(j => (word[j] == word[i] && (used[j] == Color.Green
-        || used[j] == Color.Yellow)));
-    if (used[i] != Color.Green) {
-      cur_list.applyFilter(to!Color(used[i]), i, word[i], cnt);
-      filters_applied++;
-    }
-  }
+  auto filters_applied = apply_colors!false(word, used, cur_list);
   if (cur_depth > 0) {
     cur_depth--;
     //auto list = hard_mode ? cur_list.get_wordlist() : allwords;
@@ -266,12 +254,17 @@ string[] make_guesses(string[] allwords, wordlist_t wordlist) {
 }
 
 // Apply the given colors to the wordlist via filtering, returns new smaller wordlist.
-void apply_colors(string guess, string colors, wordlist_t wordlist) {
+ulong apply_colors(bool dogreen = true)(string guess, Color[5] colors, wordlist_t wordlist) {
+  ulong applied;
   foreach (i; 0 .. 5) {
     auto cnt = iota(5).count!(j => (guess[j] == guess[i]
         && (colors[j] == Color.Green || colors[j] == Color.Yellow)));
-    wordlist.applyFilter(to!Color(colors[i]), i, guess[i], cnt);
+    if (!dogreen || colors[i] != Color.Green) {
+      wordlist.applyFilter(to!Color(colors[i]), i, guess[i], cnt);
+      applied++;
+    }
   }
+  return applied;
 }
 
 bool test_runner = false;
@@ -327,7 +320,7 @@ void run_solver(string[] wordlist, string[] wordlist2) {
     auto guess = readln();
     writeln("Input colors:");
     auto colors = readln();
-    apply_colors(guess, colors, wl);
+    apply_colors(guess, colors.map!(a => to!Color(a)).staticArray!5, wl);
   }
   if (wl.length == 1) {
     writeln("Found it: ", wl[].front);
