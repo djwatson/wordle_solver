@@ -157,26 +157,24 @@ bool calculateScore(string[] allwords, wordlist_t cur_list, ref string word, ref
 }
 
 // For the tester: Return colors based on a word and guess.
-// char[5] apply_guess(string guess, string word) {
-//   char[5] res;
-//   foreach (i; 0 .. 5) {
-//     if (guess[i] == word[i]) {
-//       res[i] = Color.Green;
-//     } else {
-//       auto yellowcnt = iota(i).count!(j => res[j] == 'y' && guess[j] == guess[i]);
-//       auto totyel = iota(5).count!(j => word[j] == guess[i] && word[j] != guess[j]);
-//       if (totyel > yellowcnt) {
-//         res[i] = Color.Yellow;
-//       } else {
-//         res[i] = Color.Black;
-//       }
-//     }
-//   }
+Color[5] apply_guess(string guess, string word) {
+  Color[5] res;
+  foreach (i; 0 .. 5) {
+    if (guess[i] == word[i]) {
+      res[i] = Color.Green;
+    } else {
+      auto yellowcnt = iota(i).count!(j => res[j] == 'y' && guess[j] == guess[i]);
+      auto totyel = iota(5).count!(j => word[j] == guess[i] && word[j] != guess[j]);
+      if (totyel > yellowcnt) {
+        res[i] = Color.Yellow;
+      } else {
+        res[i] = Color.Black;
+      }
+    }
+  }
 
-//   return res;
-// }
-
-bool hard_mode = false;
+  return res;
+}
 
 // Return optimal guesses based on the remaining wordlist
 struct guess_result {
@@ -192,10 +190,10 @@ guess_result make_guesses(bool need_results)(string[] allwords, wordlist_t wordl
   }
   bool test_result(string word) {
     if (alpha_beta_depth) {
-      static ulong total_test = 0;
-      static if (need_results) {
-	writeln("Testing ", word, " ", total_test++);
-      }
+      // static ulong total_test = 0;
+      // static if (need_results) {
+      // 	writeln("Testing ", word, " ", total_test++);
+      // }
     }
     ulong score = alpha;
     Color[5] used;
@@ -211,11 +209,11 @@ guess_result make_guesses(bool need_results)(string[] allwords, wordlist_t wordl
 	  result.word = word;
 	}
       }
-      static if (need_results) {
-	if (alpha_beta_depth) {
-	  writeln("New best guess: ", beta, " ", result.word);
-	}
-      }
+      // static if (need_results) {
+      // 	if (alpha_beta_depth) {
+      // 	  writeln("New best guess: ", beta, " ", result.word);
+      // 	}
+      // }
     }
     return false;
   }
@@ -242,7 +240,7 @@ ulong apply_colors(bool dogreen = true)(string guess, Color[5] colors, wordlist_
   foreach (i; 0 .. 5) {
     auto cnt = iota(5).count!(j => (guess[j] == guess[i]
         && (colors[j] == Color.Green || colors[j] == Color.Yellow)));
-    if (!dogreen || colors[i] != Color.Green) {
+    if (dogreen || colors[i] != Color.Green) {
       wordlist.applyFilter(to!Color(colors[i]), i, guess[i], cnt);
       applied++;
     }
@@ -250,43 +248,34 @@ ulong apply_colors(bool dogreen = true)(string guess, Color[5] colors, wordlist_
   return applied;
 }
 
-bool test_runner = false;
-
 // Run the solver on each dictionary word.
-string[] allwords;
-// void run_test(string[] wordlist, string[] wordlist2) {
-//   auto allwords = wordlist2;
-//   auto all_solutions = wordlist;
+void run_test(string[] answers, string[] guesses) {
+  foreach (word; answers) {
+    wordlist_t wordlist = new wordlist_t(answers);
 
-//   foreach (word; all_solutions) {
-//     wordlist = all_solutions;
+    string guess = "raise";
+    int iters = 0;
+    //writeln("Current word: ", word);
+    while (true) {
+      iters++;
+      auto colors = apply_guess(guess, word);
+      apply_colors(guess, colors, wordlist);
+      //writeln("  guess ", iters, ": ", guess, " colors: ", colors, " size: ", wordlist.length);
 
-//     string guess = "raise";
-//     int iters = 0;
-//     //writeln("Current word: ", word);
-//     while (true) {
-//       iters++;
-//       auto colors = apply_guess(guess, word);
-//       wordlist = apply_colors(guess, to!string(colors), wordlist);
-//       //writeln("  guess ", iters, ": ", guess, " colors: ", colors, " size: ", wordlist.length);
+      assert(wordlist.length != 0);
+      if (wordlist.length <= 1) {
+        break;
+      }
 
-//       assert(wordlist.length != 0);
-//       if (wordlist.length <= 1) {
-//         break;
-//       }
-
-//       //writeln("GUesses: ", minWord);
-//       guess = make_guesses(allwords, wordlist)[0];
-//     }
-//     writeln(word, " took iters ", iters);
-//   }
-// }
+      guess = make_guesses!true(guesses, wordlist, ulong.min, ulong.max, alpha_beta_depth).word;
+    }
+    writeln(word, " took iters ", iters);
+  }
+}
 
 // Just a command-line UI to the solver.
-ulong alpha_beta_depth = 0;
-void run_solver(string[] wordlist, string[] wordlist2) {
-  allwords = wordlist2;
-  wordlist_t wl = new wordlist_t(wordlist);
+void run_solver(string[] answers, string[] guesses) {
+  wordlist_t wl = new wordlist_t(answers);
 
   while (wl.length > 1) {
     // Output remaining
@@ -296,7 +285,7 @@ void run_solver(string[] wordlist, string[] wordlist2) {
     }
 
     // Calculate guess
-    auto minword = make_guesses!true(allwords, wl, ulong.min, ulong.max, alpha_beta_depth).word;
+    auto minword = make_guesses!true(guesses, wl, ulong.min, ulong.max, alpha_beta_depth).word;
     writeln("Best guesses: ", minword);
 
     // User input
@@ -313,6 +302,9 @@ void run_solver(string[] wordlist, string[] wordlist2) {
   }
 }
 
+bool hard_mode = false;
+bool test_runner = false;
+ulong alpha_beta_depth = 0;
 void main(string[] args) {
   auto help = getopt(args, "hard", "Hard mode, must use hint information", &hard_mode, "tester",
       "Run the solver on all words", &test_runner, "depth",
@@ -322,13 +314,13 @@ void main(string[] args) {
     return;
   }
 
-  auto wordlist = File("wordlist.txt").byLine.map!(to!string).array;
-  auto wordlist2 = File("wordlist3_out.txt").byLine.map!(to!string).array;
+  auto answers = File("wordlist.txt").byLine.map!(to!string).array;
+  auto guesses = File("wordlist3_out.txt").byLine.map!(to!string).array;
 
   if (test_runner) {
-    //run_test(wordlist, wordlist2);
+    run_test(answers, guesses);
   } else {
-    run_solver(wordlist, wordlist2);
+    run_solver(answers, guesses);
   }
 
 }
