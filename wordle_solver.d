@@ -144,13 +144,13 @@ bool calculateScore(ref string word, ref ulong cur_max, ref Color[5] used,
     ulong cur_min = ulong.max;
 
     foreach (word2; list) {
-      auto guess = make_guess(word2, cur_min);
-      if (guess.score <= cur_max) {
+      auto new_score = make_guess(word2, cur_min);
+      if (new_score <= cur_max) {
         cur_min = cur_max;
         break;
       }
-      if (guess.score < cur_min) {
-        cur_min = guess.score;
+      if (new_score < cur_min) {
+        cur_min = new_score;
       }
     }
     if (cur_min != ulong.max) {
@@ -192,65 +192,41 @@ bool calculateScore(ref string word, ref ulong cur_max, ref Color[5] used,
 
 bool hard_mode = false;
 
-struct guess_result {
-  string[] word;
-  ulong score;
-}
-
-guess_result make_guess(string word, ulong beta) {
+ulong make_guess(string word, ulong beta) {
   ulong cur_max = 0;
   Color[5] used;
   calculateScore(word, cur_max, used, 0, beta);
-  return guess_result([word], cur_max);
+  return cur_max;
 }
 
 wordlist_t cur_list;
-
-ulong total_test = 0;
-guess_result guess_reducer(guess_result a, guess_result b) {
-  assert(b.word.length == 1);
-  if (alpha_beta_depth) {
-    writeln("Testing ", b.word[0], " ", total_test++);
-  }
-  b.score = make_guess(b.word[0], a.score).score;
-  if (a.score < b.score) {
-    return a;
-  } else if (b.score < a.score) {
-    //if (cur_depth == 1) {
-    if (alpha_beta_depth) {
-      writeln("New best guess: ", b);
-    }
-    //}
-    return b;
-  } else {
-    //if (cur_depth == 1) {
-    //writeln("New best guess: ", b);
-
-    //}
-    a.word ~= b.word;
-    if (alpha_beta_depth) {
-      writeln("New best guess: ", a);
-    }
-    return a;
-  }
-}
 
 // Return optimal guesses based on the remaining wordlist
 ulong alpha_beta_depth = 0;
 string[] make_guesses(string[] allwords, wordlist_t wordlist) {
   cur_depth = alpha_beta_depth;
   cur_list = wordlist;
-  guess_result seed;
-  seed.score = ulong.max;
-  if (hard_mode) {
-    auto results = wordlist[].map!(a => guess_result([a], 0))
-      .fold!guess_reducer(seed);
-    return results.word;
-  } else {
-    auto results = allwords.map!(a => guess_result([a], 0))
-      .fold!guess_reducer(seed);
-    return results.word;
+
+  ulong min_score = ulong.max;
+  string[] results;
+  foreach(word; allwords) {
+    if (alpha_beta_depth) {
+      static ulong total_test = 0;
+      writeln("Testing ", word, " ", total_test++);
+    }
+    auto new_score = make_guess(word, min_score);
+    if (new_score <= min_score) {
+      if (new_score < min_score) {
+	min_score = new_score;
+	results.length = 0;
+      }
+      results ~= word;
+      if (alpha_beta_depth) {
+	writeln("New best guess: ", min_score, " ", results);
+      }
+    }
   }
+  return results;
 }
 
 // Apply the given colors to the wordlist via filtering, returns new smaller wordlist.
