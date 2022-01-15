@@ -70,11 +70,9 @@ struct wordlist_t {
       foreach (i; 0 .. filter_lengths[last_filter]) {
         auto wordpos = filters[last_filter][i];
         char[5] word = words[wordpos];
-        if (letter != word[position]) {
-          if (letter_counts[wordpos][letter - 'a'] <= cnt) {
-            filters[filter][filter_lengths[filter]++] = wordpos;
-          }
-        }
+	if (letter_counts[wordpos][letter - 'a'] <= cnt) {
+	  filters[filter][filter_lengths[filter]++] = wordpos;
+	}
       }
       break;
       //return words.filter!(a => (a.count(letter) <= cnt) && letter != a[position]).array;
