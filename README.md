@@ -73,8 +73,17 @@ geeky
 Although overall these doesn't seem to matter much and the code would
 be simpler.  
 
+# alpha-beta min-max
+
+Hacky alpha-beta solver results in:
+
 Best guesses at level 2:
 tolar aloes
 
-hard:
+hard mode:
 stole
+
+At level 3, almost any reasonable combination of 3 guesses results in
+worst-case of 3 words or less.  
+
+

@@ -235,13 +235,17 @@ wordlist_t cur_list;
 ulong total_test = 0;
 guess_result guess_reducer(guess_result a, guess_result b) {
   assert(b.word.length == 1);
+      if (alpha_beta_depth) {
   writeln("Testing ", b.word[0], " ", total_test++);
+      }
   b.score = make_guess(b.word[0], a.score).score;
   if (a.score < b.score) {
     return a;
   } else if (b.score < a.score) {
     //if (cur_depth == 1) {
+      if (alpha_beta_depth) {
     writeln("New best guess: ", b);
+      }
       //}
     return b;
   } else {
@@ -250,14 +254,17 @@ guess_result guess_reducer(guess_result a, guess_result b) {
     
       //}
       a.word ~= b.word;
+      if (alpha_beta_depth) {
       writeln("New best guess: ", a);
+      }
     return a;
   }
 }
 
 // Return optimal guesses based on the remaining wordlist
+ulong alpha_beta_depth = 0;
 string[] make_guesses(string[] allwords, string[] wordlist) {
-  cur_depth = 0;
+  cur_depth = alpha_beta_depth;
   auto list = hard_mode ? wordlist : allwords;
   cur_list = wordlist_t(wordlist);
   guess_result seed;
@@ -339,7 +346,8 @@ void run_solver(string[] wordlist, string[] wordlist2) {
 
 void main(string[] args) {
   auto help = getopt(args, "hard", "Hard mode, must use hint information",
-      &hard_mode, "tester", "Run the solver on all words", &test_runner);
+		     &hard_mode, "tester", "Run the solver on all words", &test_runner,
+		     "depth", "Alpha-beta depth", &alpha_beta_depth);
   if (help.helpWanted) {
     defaultGetoptPrinter("Some information about the program.", help.options);
     return;
