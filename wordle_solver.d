@@ -105,10 +105,8 @@ class wordlist_t {
 
 // Return the largest partition that can be made based on this word guess.
 // The largest partition represents the worst-case number of words left to filter.
-ulong cur_depth;
-bool calculateScore(ref string word, ref ulong cur_max, ref Color[5] used,
-    int depth = 0, ulong beta = ulong.max) {
-
+bool calculateScore(string[] allwords, wordlist_t cur_list, ref string word, ref Color[5] used, int depth, ref ulong alpha, 
+		    ulong beta, ulong ab_depth) {
   // Permutations, with an optimization for greens and yellows that
   // can be applied immediately.
   if (depth <= 4) {
@@ -120,7 +118,7 @@ bool calculateScore(ref string word, ref ulong cur_max, ref Color[5] used,
         cur_list.applyFilter(c, depth, word[depth], 1);
       }
       // End opt
-      auto fast_out = calculateScore(word, cur_max, used, depth + 1, beta);
+      auto fast_out = calculateScore(allwords, cur_list, word, used, depth + 1, alpha, beta, ab_depth);
       if (c == Color.Green || c == Color.Yellow) {
         cur_list.popFilter();
       }
@@ -128,7 +126,7 @@ bool calculateScore(ref string word, ref ulong cur_max, ref Color[5] used,
         return fast_out;
       }
     }
-    if (cur_max > beta) {
+    if (alpha > beta) {
       return true;
     }
     return false;
@@ -137,34 +135,26 @@ bool calculateScore(ref string word, ref ulong cur_max, ref Color[5] used,
   // Perumtation fully calculated: Now filter the wordlist.
   // We can end early if we're smaller than the current max list.
   auto filters_applied = apply_colors!false(word, used, cur_list);
-  if (cur_depth > 0) {
-    cur_depth--;
-    //auto list = hard_mode ? cur_list.get_wordlist() : allwords;
-    auto list = allwords;
-    ulong cur_min = ulong.max;
-
-    foreach (word2; list) {
-      auto new_score = make_guess(word2, cur_min);
-      if (new_score <= cur_max) {
-        cur_min = cur_max;
-        break;
+  if (ab_depth > 0) {
+    auto score = make_guesses!false(allwords, cur_list, alpha, beta, ab_depth-1).score;
+    if (score >= beta && score != ulong.max) {
+      alpha = beta;
+      foreach (i; 0 .. filters_applied) {
+	cur_list.popFilter();
       }
-      if (new_score < cur_min) {
-        cur_min = new_score;
-      }
+      return true;
     }
-    if (cur_min != ulong.max) {
-      cur_max = max(cur_max, cur_min);
+    if (score > alpha && score != ulong.max) {
+      alpha = score;
     }
-    cur_depth++;
   } else {
-    cur_max = max(cur_max, cur_list.length);
+    alpha = max(alpha, cur_list.length);
   }
   foreach (i; 0 .. filters_applied) {
     cur_list.popFilter();
   }
 
-  if (cur_max > beta) {
+  if (alpha > beta) {
     return true;
   }
   return false;
@@ -192,41 +182,43 @@ bool calculateScore(ref string word, ref ulong cur_max, ref Color[5] used,
 
 bool hard_mode = false;
 
-ulong make_guess(string word, ulong beta) {
-  ulong cur_max = 0;
-  Color[5] used;
-  calculateScore(word, cur_max, used, 0, beta);
-  return cur_max;
-}
-
-wordlist_t cur_list;
-
 // Return optimal guesses based on the remaining wordlist
-ulong alpha_beta_depth = 0;
-string[] make_guesses(string[] allwords, wordlist_t wordlist) {
-  cur_depth = alpha_beta_depth;
-  cur_list = wordlist;
-
-  ulong min_score = ulong.max;
-  string[] results;
-  foreach(word; allwords) {
+struct guess_result {
+  string word;
+  ulong score;
+}
+guess_result make_guesses(bool need_results)(string[] allwords, wordlist_t wordlist, ulong alpha, ulong beta, ulong ab_depth) {
+  guess_result result;
+  foreach(word; wordlist[]) {
     if (alpha_beta_depth) {
       static ulong total_test = 0;
-      writeln("Testing ", word, " ", total_test++);
-    }
-    auto new_score = make_guess(word, min_score);
-    if (new_score <= min_score) {
-      if (new_score < min_score) {
-	min_score = new_score;
-	results.length = 0;
+      static if (need_results) {
+	writeln("Testing ", word, " ", total_test++);
       }
-      results ~= word;
-      if (alpha_beta_depth) {
-	writeln("New best guess: ", min_score, " ", results);
+    }
+    ulong score = alpha;
+    Color[5] used;
+    calculateScore(allwords, wordlist, word, used, 0, score, beta, ab_depth);
+    if (score <= alpha) {
+      result.score = alpha;
+      return result;
+    }
+    if (score <= beta) {
+      if (score < beta) {
+	beta = score;
+	static if (need_results) {
+	  result.word = word;
+	}
+      }
+      static if (need_results) {
+	if (alpha_beta_depth) {
+	  writeln("New best guess: ", beta, " ", result.word);
+	}
       }
     }
   }
-  return results;
+  result.score = beta;
+  return result;
 }
 
 // Apply the given colors to the wordlist via filtering, returns new smaller wordlist.
@@ -276,6 +268,7 @@ string[] allwords;
 // }
 
 // Just a command-line UI to the solver.
+ulong alpha_beta_depth = 0;
 void run_solver(string[] wordlist, string[] wordlist2) {
   allwords = wordlist2;
   wordlist_t wl = new wordlist_t(wordlist);
@@ -288,8 +281,8 @@ void run_solver(string[] wordlist, string[] wordlist2) {
     }
 
     // Calculate guess
-    string[] minWord = make_guesses(allwords, wl);
-    writeln("Best guesses: ", minWord.take(10));
+    auto minword = make_guesses!true(allwords, wl, ulong.min, ulong.max, alpha_beta_depth).word;
+    writeln("Best guesses: ", minword);
 
     // User input
     writeln("Input a guess: ");
