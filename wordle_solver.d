@@ -126,37 +126,33 @@ bool calculateScore(string[] allwords, wordlist_t cur_list, ref string word, ref
         return fast_out;
       }
     }
-    if (alpha > beta) {
-      return true;
-    }
     return false;
   }
 
   // Perumtation fully calculated: Now filter the wordlist.
   // We can end early if we're smaller than the current max list.
   auto filters_applied = apply_colors!false(word, used, cur_list);
+  ulong score;
   if (ab_depth > 0) {
-    auto score = make_guesses!false(allwords, cur_list, alpha, beta, ab_depth-1).score;
-    if (score >= beta && score != ulong.max) {
-      alpha = beta;
-      foreach (i; 0 .. filters_applied) {
-	cur_list.popFilter();
-      }
-      return true;
-    }
-    if (score > alpha && score != ulong.max) {
-      alpha = score;
-    }
+    score = make_guesses!false(allwords, cur_list, alpha, beta, ab_depth-1).score;
   } else {
-    alpha = max(alpha, cur_list.length);
+    score = cur_list.length;
   }
+  if (score >= beta) {
+    alpha = beta;
+    foreach (i; 0 .. filters_applied) {
+      cur_list.popFilter();
+    }
+    return true;
+  }
+  if (score > alpha) {
+    alpha = score;
+  }
+
   foreach (i; 0 .. filters_applied) {
     cur_list.popFilter();
   }
 
-  if (alpha > beta) {
-    return true;
-  }
   return false;
 }
 
@@ -185,11 +181,16 @@ bool hard_mode = false;
 // Return optimal guesses based on the remaining wordlist
 struct guess_result {
   string word;
-  ulong score;
+  ulong score = 0;
 }
+
+
 guess_result make_guesses(bool need_results)(string[] allwords, wordlist_t wordlist, ulong alpha, ulong beta, ulong ab_depth) {
   guess_result result;
-  foreach(word; wordlist[]) {
+  if (wordlist.length == 0) {
+    return result;
+  }
+  bool test_result(string word) {
     if (alpha_beta_depth) {
       static ulong total_test = 0;
       static if (need_results) {
@@ -201,7 +202,7 @@ guess_result make_guesses(bool need_results)(string[] allwords, wordlist_t wordl
     calculateScore(allwords, wordlist, word, used, 0, score, beta, ab_depth);
     if (score <= alpha) {
       result.score = alpha;
-      return result;
+      return true;
     }
     if (score <= beta) {
       if (score < beta) {
@@ -214,6 +215,20 @@ guess_result make_guesses(bool need_results)(string[] allwords, wordlist_t wordl
 	if (alpha_beta_depth) {
 	  writeln("New best guess: ", beta, " ", result.word);
 	}
+      }
+    }
+    return false;
+  }
+  if (hard_mode) {
+    foreach(word; wordlist) {
+      if (test_result(word)) {
+	return result;
+      }
+    }
+  } else {
+    foreach(word; allwords) {
+      if (test_result(word)) {
+	return result;
       }
     }
   }
