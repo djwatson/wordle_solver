@@ -71,6 +71,10 @@ class wordlist_t {
     return filter_lengths[filter_cnt];
   }
 
+  // Apply a filter based on color to the wordlist, returning a new wordlist.
+  // Black and Yellow filters must take in to account the number of letters already used
+  // for that particular type, since this indicates how many of each letter there are
+  // if there are multiples.
   void applyFilter(Color color, int position, char letter, ulong cnt) {
     auto last_filter = filter_cnt;
     auto filter = ++filter_cnt;
@@ -117,21 +121,6 @@ class wordlist_t {
   }
 }
 
-// Apply a filter based on color to the wordlist, returning a new wordlist.
-// Black and Yellow filters must take in to account the number of letters already used
-// for that particular type, since this indicates how many of each letter there are
-// if there are multiples.
-auto applyFilter(string[] words, Color color, int position, char letter, ulong cnt) {
-  final switch (color) {
-  case Color.Black:
-    return words.filter!(a => (a.count(letter) <= cnt) && letter != a[position]).array;
-  case Color.Yellow:
-    return words.filter!(a => (a.count(letter) >= cnt) && letter != a[position]).array;
-  case Color.Green:
-    return words.filter!(a => letter == a[position]).array;
-  }
-}
-
 // Return the largest partition that can be made based on this word guess.
 // The largest partition represents the worst-case number of words left to filter.
 ulong cur_depth;
@@ -145,10 +134,7 @@ bool calculateScore(ref string word, ref ulong cur_max, ref Color[5] used,
       used[depth] = c;
 
       // Optimize for greens/yellows immediately. Blacks must wait for full count.
-      if (c == Color.Green) {
-        cur_list.applyFilter(c, depth, word[depth], 0);
-      }
-      if (c == Color.Yellow) {
+      if (c == Color.Green || c == Color.Yellow) {
         cur_list.applyFilter(c, depth, word[depth], 1);
       }
       // End opt
@@ -293,13 +279,12 @@ string[] make_guesses(string[] allwords, wordlist_t wordlist) {
 }
 
 // Apply the given colors to the wordlist via filtering, returns new smaller wordlist.
-string[] apply_colors(string guess, string colors, string[] wordlist) {
+void apply_colors(string guess, string colors, wordlist_t wordlist) {
   foreach (i; 0 .. 5) {
     auto cnt = iota(5).count!(j => (guess[j] == guess[i]
         && (colors[j] == Color.Green || colors[j] == Color.Yellow)));
-    wordlist = wordlist.applyFilter(to!Color(colors[i]), i, guess[i], cnt);
+    wordlist.applyFilter(to!Color(colors[i]), i, guess[i], cnt);
   }
-  return wordlist;
 }
 
 bool test_runner = false;
@@ -339,11 +324,11 @@ void run_solver(string[] wordlist, string[] wordlist2) {
   allwords = wordlist2;
   wordlist_t wl = new wordlist_t(wordlist);
 
-  while (wordlist.length > 1) {
+  while (wl.length > 1) {
     // Output remaining
-    writeln("Remaining: ", wordlist.length);
-    if (wordlist.length < 10) {
-      writeln(wordlist.sort);
+    writeln("Remaining: ", wl.length);
+    if (wl.length < 10) {
+      writeln(wl[]);
     }
 
     // Calculate guess
@@ -355,10 +340,10 @@ void run_solver(string[] wordlist, string[] wordlist2) {
     auto guess = readln();
     writeln("Input colors:");
     auto colors = readln();
-    wordlist = apply_colors(guess, colors, wordlist);
+    apply_colors(guess, colors, wl);
   }
-  if (wordlist.length == 1) {
-    writeln("Found it: ", wordlist[0]);
+  if (wl.length == 1) {
+    writeln("Found it: ", wl[].front);
   } else {
     writeln("No words remaining");
   }
