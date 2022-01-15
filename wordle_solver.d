@@ -23,15 +23,15 @@ struct wordlist_t {
 
   this(string[] wordlist) {
     ushort[] new_filter;
-    foreach(word; wordlist) {
+    foreach (word; wordlist) {
       char[5] newword;
       filter_lengths ~= 0;
       newword = word;
       words ~= newword;
       new_filter ~= filter_lengths[0]++;
       ubyte[26] new_counts;
-      foreach(letter; 0 .. 26) {
-	new_counts[letter] = cast(ubyte)word.count(letter + 'a');
+      foreach (letter; 0 .. 26) {
+        new_counts[letter] = cast(ubyte) word.count(letter + 'a');
       }
       letter_counts ~= new_counts;
     }
@@ -40,7 +40,7 @@ struct wordlist_t {
 
   string[] get_wordlist() {
     string[] res;
-    foreach(wordpos; filters[filter_cnt]) {
+    foreach (wordpos; filters[filter_cnt]) {
       res ~= to!string(words[wordpos]);
     }
     return res;
@@ -67,36 +67,36 @@ struct wordlist_t {
     filter_lengths[filter] = 0;
     final switch (color) {
     case Color.Black:
-      foreach(i; 0 .. filter_lengths[last_filter]) {
-	auto wordpos = filters[last_filter][i];
-	char[5] word = words[wordpos];
-	if (letter != word[position]) {
-	  if (letter_counts[wordpos][letter - 'a'] <= cnt) {
-	    filters[filter][filter_lengths[filter]++] = wordpos;
-	  }
-	}
+      foreach (i; 0 .. filter_lengths[last_filter]) {
+        auto wordpos = filters[last_filter][i];
+        char[5] word = words[wordpos];
+        if (letter != word[position]) {
+          if (letter_counts[wordpos][letter - 'a'] <= cnt) {
+            filters[filter][filter_lengths[filter]++] = wordpos;
+          }
+        }
       }
       break;
       //return words.filter!(a => (a.count(letter) <= cnt) && letter != a[position]).array;
     case Color.Yellow:
-      foreach(i; 0 .. filter_lengths[last_filter]) {
-	auto wordpos = filters[last_filter][i];
-	char[5] word = words[wordpos];
-	if (letter != word[position]) {
-	  if (letter_counts[wordpos][letter - 'a'] >= cnt) {
-	    filters[filter][filter_lengths[filter]++] = wordpos;
-	  }
-	}
+      foreach (i; 0 .. filter_lengths[last_filter]) {
+        auto wordpos = filters[last_filter][i];
+        char[5] word = words[wordpos];
+        if (letter != word[position]) {
+          if (letter_counts[wordpos][letter - 'a'] >= cnt) {
+            filters[filter][filter_lengths[filter]++] = wordpos;
+          }
+        }
       }
       break;
       //return words.filter!(a => (a.count(letter) >= cnt) && letter != a[position]).array;
     case Color.Green:
-      foreach(i; 0 .. filter_lengths[last_filter]) {
-	auto wordpos = filters[last_filter][i];
-	char[5] word = words[wordpos];
-	if (letter == word[position]) {
-	  filters[filter][filter_lengths[filter]++] = wordpos;
-	}
+      foreach (i; 0 .. filter_lengths[last_filter]) {
+        auto wordpos = filters[last_filter][i];
+        char[5] word = words[wordpos];
+        if (letter == word[position]) {
+          filters[filter][filter_lengths[filter]++] = wordpos;
+        }
       }
       break;
       //return words.filter!(a => letter == a[position]).array;
@@ -122,8 +122,8 @@ auto applyFilter(string[] words, Color color, int position, char letter, ulong c
 // Return the largest partition that can be made based on this word guess.
 // The largest partition represents the worst-case number of words left to filter.
 ulong cur_depth;
-bool calculateScore(ref string word, ref ulong cur_max,
-		    ref Color[5] used, int depth = 0, ulong beta = ulong.max) {
+bool calculateScore(ref string word, ref ulong cur_max, ref Color[5] used,
+    int depth = 0, ulong beta = ulong.max) {
 
   // Permutations, with an optimization for greens and yellows that
   // can be applied immediately.
@@ -141,10 +141,10 @@ bool calculateScore(ref string word, ref ulong cur_max,
       // End opt
       auto fast_out = calculateScore(word, cur_max, used, depth + 1, beta);
       if (c == Color.Green || c == Color.Yellow) {
-	cur_list.popFilter();
+        cur_list.popFilter();
       }
       if (fast_out) {
-	return fast_out;
+        return fast_out;
       }
     }
     if (cur_max > beta) {
@@ -168,15 +168,15 @@ bool calculateScore(ref string word, ref ulong cur_max,
     cur_depth--;
     auto list = hard_mode ? cur_list.get_wordlist() : allwords;
     ulong cur_min = ulong.max;
-    
-    foreach(word2; list) {
+
+    foreach (word2; list) {
       auto guess = make_guess(word2, cur_min);
       if (guess.score <= cur_max) {
-	cur_min = cur_max;
-	break;
+        cur_min = cur_max;
+        break;
       }
-      if (guess.score < cur_min ) {
-	cur_min = guess.score;
+      if (guess.score < cur_min) {
+        cur_min = guess.score;
       }
     }
     if (cur_min != ulong.max) {
@@ -186,7 +186,7 @@ bool calculateScore(ref string word, ref ulong cur_max,
   } else {
     cur_max = max(cur_max, cur_list.length);
   }
-  foreach(i; 0..filters_applied) {
+  foreach (i; 0 .. filters_applied) {
     cur_list.popFilter();
   }
 
@@ -235,28 +235,28 @@ wordlist_t cur_list;
 ulong total_test = 0;
 guess_result guess_reducer(guess_result a, guess_result b) {
   assert(b.word.length == 1);
-      if (alpha_beta_depth) {
-  writeln("Testing ", b.word[0], " ", total_test++);
-      }
+  if (alpha_beta_depth) {
+    writeln("Testing ", b.word[0], " ", total_test++);
+  }
   b.score = make_guess(b.word[0], a.score).score;
   if (a.score < b.score) {
     return a;
   } else if (b.score < a.score) {
     //if (cur_depth == 1) {
-      if (alpha_beta_depth) {
-    writeln("New best guess: ", b);
-      }
-      //}
+    if (alpha_beta_depth) {
+      writeln("New best guess: ", b);
+    }
+    //}
     return b;
   } else {
     //if (cur_depth == 1) {
     //writeln("New best guess: ", b);
-    
-      //}
-      a.word ~= b.word;
-      if (alpha_beta_depth) {
+
+    //}
+    a.word ~= b.word;
+    if (alpha_beta_depth) {
       writeln("New best guess: ", a);
-      }
+    }
     return a;
   }
 }
@@ -269,7 +269,8 @@ string[] make_guesses(string[] allwords, string[] wordlist) {
   cur_list = wordlist_t(wordlist);
   guess_result seed;
   seed.score = ulong.max;
-  auto results = list.map!(a => guess_result([a], 0)).fold!guess_reducer(seed);
+  auto results = list.map!(a => guess_result([a], 0))
+    .fold!guess_reducer(seed);
   return results.word;
 }
 
@@ -345,9 +346,9 @@ void run_solver(string[] wordlist, string[] wordlist2) {
 }
 
 void main(string[] args) {
-  auto help = getopt(args, "hard", "Hard mode, must use hint information",
-		     &hard_mode, "tester", "Run the solver on all words", &test_runner,
-		     "depth", "Alpha-beta depth", &alpha_beta_depth);
+  auto help = getopt(args, "hard", "Hard mode, must use hint information", &hard_mode, "tester",
+      "Run the solver on all words", &test_runner, "depth",
+      "Alpha-beta depth", &alpha_beta_depth);
   if (help.helpWanted) {
     defaultGetoptPrinter("Some information about the program.", help.options);
     return;
