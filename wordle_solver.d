@@ -13,7 +13,7 @@ enum Color {
   Green = 'g'
 }
 
-struct wordlist_t {
+class wordlist_t {
   char[5][] words;
   ubyte[26][] letter_counts;
   ulong filter_cnt;
@@ -22,13 +22,12 @@ struct wordlist_t {
   ushort[] filter_lengths;
 
   this(string[] wordlist) {
-    ushort[] new_filter;
+    ushort[] new_filter = iota(wordlist.length).map!(a => cast(ushort)a).array;
+    filter_lengths ~= cast(ushort)wordlist.length;
     foreach (word; wordlist) {
       char[5] newword;
-      filter_lengths ~= 0;
       newword = word;
       words ~= newword;
-      new_filter ~= filter_lengths[0]++;
       ubyte[26] new_counts;
       foreach (letter; 0 .. 26) {
         new_counts[letter] = cast(ubyte) word.count(letter + 'a');
@@ -51,6 +50,23 @@ struct wordlist_t {
     --filter_cnt;
   }
 
+  struct iter {
+    wordlist_t wordlist;
+    ulong filter_cnt;
+    ulong pos;
+    string front() { return to!string(wordlist.words[wordlist.filters[filter_cnt][pos]]);}
+    bool empty() { return pos >= wordlist.filter_lengths[filter_cnt] ;}
+    void popFront() { pos++;}
+  }
+
+  iter opSlice() {
+    iter i;
+    i.wordlist = this;
+    i.filter_cnt = this.filter_cnt;
+    i.pos = 0;
+    return i;
+  }
+
   ulong length() {
     return filter_lengths[filter_cnt];
   }
@@ -69,7 +85,6 @@ struct wordlist_t {
     case Color.Black:
       foreach (i; 0 .. filter_lengths[last_filter]) {
         auto wordpos = filters[last_filter][i];
-        char[5] word = words[wordpos];
 	if (letter_counts[wordpos][letter - 'a'] <= cnt) {
 	  filters[filter][filter_lengths[filter]++] = wordpos;
 	}
@@ -261,15 +276,20 @@ guess_result guess_reducer(guess_result a, guess_result b) {
 
 // Return optimal guesses based on the remaining wordlist
 ulong alpha_beta_depth = 0;
-string[] make_guesses(string[] allwords, string[] wordlist) {
+string[] make_guesses(string[] allwords, wordlist_t wordlist) {
   cur_depth = alpha_beta_depth;
-  auto list = hard_mode ? wordlist : allwords;
-  cur_list = wordlist_t(wordlist);
+  cur_list = wordlist;
   guess_result seed;
   seed.score = ulong.max;
-  auto results = list.map!(a => guess_result([a], 0))
-    .fold!guess_reducer(seed);
-  return results.word;
+  if (hard_mode) {
+    auto results = wordlist[].map!(a => guess_result([a], 0))
+      .fold!guess_reducer(seed);
+    return results.word;
+  } else {
+    auto results = allwords.map!(a => guess_result([a], 0))
+      .fold!guess_reducer(seed);
+    return results.word;
+  }
 }
 
 // Apply the given colors to the wordlist via filtering, returns new smaller wordlist.
@@ -317,6 +337,7 @@ string[] allwords;
 // Just a command-line UI to the solver.
 void run_solver(string[] wordlist, string[] wordlist2) {
   allwords = wordlist2;
+  wordlist_t wl = new wordlist_t(wordlist);
 
   while (wordlist.length > 1) {
     // Output remaining
@@ -326,7 +347,7 @@ void run_solver(string[] wordlist, string[] wordlist2) {
     }
 
     // Calculate guess
-    string[] minWord = make_guesses(allwords, wordlist);
+    string[] minWord = make_guesses(allwords, wl);
     writeln("Best guesses: ", minWord.take(10));
 
     // User input
