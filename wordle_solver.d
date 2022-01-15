@@ -13,6 +13,97 @@ enum Color {
   Green = 'g'
 }
 
+struct wordlist_t {
+  char[5][] words;
+  ubyte[26][] letter_counts;
+  ulong filter_cnt;
+
+  ushort[][] filters;
+  ushort[] filter_lengths;
+
+  this(string[] wordlist) {
+    ushort[] new_filter;
+    foreach(word; wordlist) {
+      char[5] newword;
+      filter_lengths ~= 0;
+      newword = word;
+      words ~= newword;
+      new_filter ~= filter_lengths[0]++;
+      ubyte[26] new_counts;
+      foreach(letter; 0 .. 26) {
+	new_counts[letter] = cast(ubyte)word.count(letter + 'a');
+      }
+      letter_counts ~= new_counts;
+    }
+    filters ~= new_filter;
+  }
+
+  string[] get_wordlist() {
+    string[] res;
+    foreach(wordpos; filters[filter_cnt]) {
+      res ~= to!string(words[wordpos]);
+    }
+    return res;
+  }
+
+  void popFilter() {
+    assert(filter_cnt > 0);
+    --filter_cnt;
+  }
+
+  ulong length() {
+    return filter_lengths[filter_cnt];
+  }
+
+  void applyFilter(Color color, int position, char letter, ulong cnt) {
+    auto last_filter = filter_cnt;
+    auto filter = ++filter_cnt;
+    if (filters.length <= filter_cnt) {
+      ushort[] new_filter;
+      new_filter.length = words.length;
+      filters ~= new_filter;
+      filter_lengths ~= 0;
+    }
+    filter_lengths[filter] = 0;
+    final switch (color) {
+    case Color.Black:
+      foreach(i; 0 .. filter_lengths[last_filter]) {
+	auto wordpos = filters[last_filter][i];
+	char[5] word = words[wordpos];
+	if (letter != word[position]) {
+	  if (letter_counts[wordpos][letter - 'a'] <= cnt) {
+	    filters[filter][filter_lengths[filter]++] = wordpos;
+	  }
+	}
+      }
+      break;
+      //return words.filter!(a => (a.count(letter) <= cnt) && letter != a[position]).array;
+    case Color.Yellow:
+      foreach(i; 0 .. filter_lengths[last_filter]) {
+	auto wordpos = filters[last_filter][i];
+	char[5] word = words[wordpos];
+	if (letter != word[position]) {
+	  if (letter_counts[wordpos][letter - 'a'] >= cnt) {
+	    filters[filter][filter_lengths[filter]++] = wordpos;
+	  }
+	}
+      }
+      break;
+      //return words.filter!(a => (a.count(letter) >= cnt) && letter != a[position]).array;
+    case Color.Green:
+      foreach(i; 0 .. filter_lengths[last_filter]) {
+	auto wordpos = filters[last_filter][i];
+	char[5] word = words[wordpos];
+	if (letter == word[position]) {
+	  filters[filter][filter_lengths[filter]++] = wordpos;
+	}
+      }
+      break;
+      //return words.filter!(a => letter == a[position]).array;
+    }
+  }
+}
+
 // Apply a filter based on color to the wordlist, returning a new wordlist.
 // Black and Yellow filters must take in to account the number of letters already used
 // for that particular type, since this indicates how many of each letter there are
@@ -30,7 +121,8 @@ auto applyFilter(string[] words, Color color, int position, char letter, ulong c
 
 // Return the largest partition that can be made based on this word guess.
 // The largest partition represents the worst-case number of words left to filter.
-bool calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
+ulong cur_depth;
+bool calculateScore(ref string word, ref ulong cur_max,
 		    ref Color[5] used, int depth = 0, ulong beta = ulong.max) {
 
   // Permutations, with an optimization for greens and yellows that
@@ -40,15 +132,17 @@ bool calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
       used[depth] = c;
 
       // Optimize for greens/yellows immediately. Blacks must wait for full count.
-      auto newlist = wordlist;
       if (c == Color.Green) {
-        newlist = wordlist.applyFilter(c, depth, word[depth], 0);
+        cur_list.applyFilter(c, depth, word[depth], 0);
       }
       if (c == Color.Yellow) {
-        newlist = wordlist.applyFilter(c, depth, word[depth], 1);
+        cur_list.applyFilter(c, depth, word[depth], 1);
       }
       // End opt
-      auto fast_out = calculateScore(word, newlist, cur_max, used, depth + 1, beta);
+      auto fast_out = calculateScore(word, cur_max, used, depth + 1, beta);
+      if (c == Color.Green || c == Color.Yellow) {
+	cur_list.popFilter();
+      }
       if (fast_out) {
 	return fast_out;
       }
@@ -64,9 +158,34 @@ bool calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
   foreach (i; 0 .. 5) {
     auto cnt = iota(5).count!(j => (word[j] == word[i] && (used[j] == Color.Green
         || used[j] == Color.Yellow)));
-    wordlist = wordlist.applyFilter(to!Color(used[i]), i, word[i], cnt);
+    cur_list.applyFilter(to!Color(used[i]), i, word[i], cnt);
   }
-  cur_max = max(cur_max, wordlist.length);
+  if (cur_depth > 0) {
+    cur_depth--;
+    auto list = hard_mode ? cur_list.get_wordlist() : allwords;
+    ulong cur_min = ulong.max;
+    
+    foreach(word2; list) {
+      auto guess = make_guess(word2, cur_min);
+      if (guess.score <= cur_max) {
+	cur_min = cur_max;
+	break;
+      }
+      if (guess.score < cur_min ) {
+	cur_min = guess.score;
+      }
+    }
+    if (cur_min != ulong.max) {
+      cur_max = max(cur_max, cur_min);
+    }
+    cur_depth++;
+  } else {
+    cur_max = max(cur_max, cur_list.length);
+  }
+  foreach(i; 0..5) {
+    cur_list.popFilter();
+  }
+
   if (cur_max > beta) {
     return true;
   }
@@ -74,24 +193,24 @@ bool calculateScore(ref string word, string[] wordlist, ref ulong cur_max,
 }
 
 // For the tester: Return colors based on a word and guess.
-char[5] apply_guess(string guess, string word) {
-  char[5] res;
-  foreach (i; 0 .. 5) {
-    if (guess[i] == word[i]) {
-      res[i] = 'g';
-    } else {
-      auto yellowcnt = iota(i).count!(j => res[j] == 'y' && guess[j] == guess[i]);
-      auto totyel = iota(5).count!(j => word[j] == guess[i] && word[j] != guess[j]);
-      if (totyel > yellowcnt) {
-        res[i] = 'y';
-      } else {
-        res[i] = 'b';
-      }
-    }
-  }
+// char[5] apply_guess(string guess, string word) {
+//   char[5] res;
+//   foreach (i; 0 .. 5) {
+//     if (guess[i] == word[i]) {
+//       res[i] = Color.Green;
+//     } else {
+//       auto yellowcnt = iota(i).count!(j => res[j] == 'y' && guess[j] == guess[i]);
+//       auto totyel = iota(5).count!(j => word[j] == guess[i] && word[j] != guess[j]);
+//       if (totyel > yellowcnt) {
+//         res[i] = Color.Yellow;
+//       } else {
+//         res[i] = Color.Black;
+//       }
+//     }
+//   }
 
-  return res;
-}
+//   return res;
+// }
 
 bool hard_mode = false;
 
@@ -100,31 +219,43 @@ struct guess_result {
   ulong score;
 }
 
-guess_result make_guess(string word, string[] wordlist, ulong beta = ulong.max) {
+guess_result make_guess(string word, ulong beta) {
   ulong cur_max = 0;
   Color[5] used;
-  calculateScore(word, wordlist, cur_max, used, 0, beta);
+  calculateScore(word, cur_max, used, 0, beta);
   return guess_result([word], cur_max);
 }
 
-string[] cur_list;
+wordlist_t cur_list;
+
+ulong total_test = 0;
 guess_result guess_reducer(guess_result a, guess_result b) {
   assert(b.word.length == 1);
-  b.score = make_guess(b.word[0], cur_list, a.score).score;
+  writeln("Testing ", b.word[0], " ", total_test++);
+  b.score = make_guess(b.word[0], a.score).score;
   if (a.score < b.score) {
     return a;
   } else if (b.score < a.score) {
+    //if (cur_depth == 1) {
+    writeln("New best guess: ", b);
+      //}
     return b;
   } else {
-    a.word ~= b.word;
+    //if (cur_depth == 1) {
+    //writeln("New best guess: ", b);
+    
+      //}
+      a.word ~= b.word;
+    writeln("New best guess: ", a);
     return a;
   }
 }
 
 // Return optimal guesses based on the remaining wordlist
 string[] make_guesses(string[] allwords, string[] wordlist) {
+  cur_depth = 0;
   auto list = hard_mode ? wordlist : allwords;
-  cur_list = wordlist;
+  cur_list = wordlist_t(wordlist);
   guess_result seed;
   seed.score = ulong.max;
   auto results = list.map!(a => guess_result([a], 0)).fold!guess_reducer(seed);
@@ -144,37 +275,38 @@ string[] apply_colors(string guess, string colors, string[] wordlist) {
 bool test_runner = false;
 
 // Run the solver on each dictionary word.
-void run_test(string[] wordlist, string[] wordlist2) {
-  auto allwords = wordlist2;
-  auto all_solutions = wordlist;
+string[] allwords;
+// void run_test(string[] wordlist, string[] wordlist2) {
+//   auto allwords = wordlist2;
+//   auto all_solutions = wordlist;
 
-  foreach (word; all_solutions) {
-    wordlist = all_solutions;
+//   foreach (word; all_solutions) {
+//     wordlist = all_solutions;
 
-    string guess = "raise";
-    int iters = 0;
-    //writeln("Current word: ", word);
-    while (true) {
-      iters++;
-      auto colors = apply_guess(guess, word);
-      wordlist = apply_colors(guess, to!string(colors), wordlist);
-      //writeln("  guess ", iters, ": ", guess, " colors: ", colors, " size: ", wordlist.length);
+//     string guess = "raise";
+//     int iters = 0;
+//     //writeln("Current word: ", word);
+//     while (true) {
+//       iters++;
+//       auto colors = apply_guess(guess, word);
+//       wordlist = apply_colors(guess, to!string(colors), wordlist);
+//       //writeln("  guess ", iters, ": ", guess, " colors: ", colors, " size: ", wordlist.length);
 
-      assert(wordlist.length != 0);
-      if (wordlist.length <= 1) {
-        break;
-      }
+//       assert(wordlist.length != 0);
+//       if (wordlist.length <= 1) {
+//         break;
+//       }
 
-      //writeln("GUesses: ", minWord);
-      guess = make_guesses(allwords, wordlist)[0];
-    }
-    writeln(word, " took iters ", iters);
-  }
-}
+//       //writeln("GUesses: ", minWord);
+//       guess = make_guesses(allwords, wordlist)[0];
+//     }
+//     writeln(word, " took iters ", iters);
+//   }
+// }
 
 // Just a command-line UI to the solver.
 void run_solver(string[] wordlist, string[] wordlist2) {
-  auto allwords = wordlist2;
+  allwords = wordlist2;
 
   while (wordlist.length > 1) {
     // Output remaining
@@ -213,7 +345,7 @@ void main(string[] args) {
   auto wordlist2 = File("wordlist3_out.txt").byLine.map!(to!string).array;
 
   if (test_runner) {
-    run_test(wordlist, wordlist2);
+    //run_test(wordlist, wordlist2);
   } else {
     run_solver(wordlist, wordlist2);
   }
