@@ -89,3 +89,5 @@ worst-case of 3 words or less.
 
 laden, riots, gimpy, chuck
 rebut, flick, mason
+
+after wordering words, 'learn' is tops for hard mode

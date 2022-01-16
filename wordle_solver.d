@@ -197,7 +197,7 @@ guess_result make_guesses(bool need_results)(string[] allwords, wordlist_t wordl
     if (alpha_beta_depth) {
       static if (need_results) {
 	if (mt) mtx.lock();
-	writeln("Testing ", word, " ", total_test++);
+	//writeln("Testing ", word, " ", total_test++);
 	if (mt) mtx.unlock();
       }
     }
@@ -218,7 +218,7 @@ guess_result make_guesses(bool need_results)(string[] allwords, wordlist_t wordl
 	}
       static if (need_results) {
 	if (alpha_beta_depth) {
-	  writeln("New best guess: ", beta, " ", result.word);
+	  //writeln("New best guess: ", beta, " ", result.word);
 	}
       }
       }
@@ -228,14 +228,14 @@ guess_result make_guesses(bool need_results)(string[] allwords, wordlist_t wordl
   }
   if (hard_mode) {
     if (alpha_beta_depth == ab_depth) {
-      writeln("Parallel");
+      //writeln("Parallel");
       auto words = wordlist[].array;
       foreach(word; parallel(words, 1)) {
 	auto new_wordlist = new wordlist_t(wordlist[].array);
 	test_result!true(word, new_wordlist);
       }
     } else {
-      foreach(word; wordlist) {
+      foreach(word; wordlist[]) {
 	if (test_result(word, wordlist)) {
 	  return result;
 	}
@@ -243,7 +243,7 @@ guess_result make_guesses(bool need_results)(string[] allwords, wordlist_t wordl
     }
   } else {
     if (alpha_beta_depth == ab_depth) {
-      writeln("Parallel");
+      //writeln("Parallel");
       foreach(word; parallel(allwords, 1)) {
 	auto new_wordlist = new wordlist_t(wordlist[].array);
 	test_result!true(word, new_wordlist);
@@ -279,7 +279,7 @@ void run_test(string[] answers, string[] guesses) {
   foreach (word; answers) {
     wordlist_t wordlist = new wordlist_t(answers);
 
-    string guess = "laden";
+    string guess = "learn";
     int iters = 0;
     //writeln("Current word: ", word);
     while (true) {
@@ -311,11 +311,12 @@ void run_solver(string[] answers, string[] guesses) {
     }
 
     // Calculate guess
-    if (!first) {
-    auto minword = make_guesses!true(guesses, wl, ulong.min, ulong.max, alpha_beta_depth).word;
-    writeln("Best guesses: ", minword);
+    if (first == 0) {
+      auto minword = make_guesses!true(guesses, wl, ulong.min, ulong.max, alpha_beta_depth).word;
+      writeln("Best guesses: ", minword);
+    } else {
+      first--;
     }
-    first = false;
 
     // User input
     writeln("Input a guess: ");
@@ -334,11 +335,11 @@ void run_solver(string[] answers, string[] guesses) {
 __gshared bool hard_mode = false;
 __gshared bool test_runner = false;
 __gshared ulong alpha_beta_depth = 0;
-__gshared bool first = false;
+__gshared ulong first = 0;
 void main(string[] args) {
   auto help = getopt(args, "hard", "Hard mode, must use hint information", &hard_mode, "tester",
       "Run the solver on all words", &test_runner, "depth",
-		     "Alpha-beta depth", &alpha_beta_depth, "first", "Don't Guess first word?", &first);
+		     "Alpha-beta depth", &alpha_beta_depth, "first", "Don't guess first x words", &first);
   if (help.helpWanted) {
     defaultGetoptPrinter("Some information about the program.", help.options);
     return;
