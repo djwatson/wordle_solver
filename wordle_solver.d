@@ -6,6 +6,8 @@ import std.string;
 import std.traits;
 import std.random;
 import std.getopt;
+import std.parallelism;
+import core.sync.mutex;
 
 enum Color {
   Black = 'b',
@@ -183,23 +185,28 @@ struct guess_result {
 }
 
 
+__gshared ulong total_test = 0;
 guess_result make_guesses(bool need_results)(string[] allwords, wordlist_t wordlist, ulong alpha, ulong beta, ulong ab_depth) {
   guess_result result;
   if (wordlist.length == 0) {
     return result;
   }
-  bool test_result(string word) {
+  auto mtx = new shared Mutex;
+  bool test_result(bool mt = false)(string word, wordlist_t wordlist) {
     if (alpha_beta_depth) {
-      // static ulong total_test = 0;
-      // static if (need_results) {
-      // 	writeln("Testing ", word, " ", total_test++);
-      // }
+      static if (need_results) {
+	if (mt) mtx.lock();
+	writeln("Testing ", word, " ", total_test++);
+	if (mt) mtx.unlock();
+      }
     }
     ulong score = alpha;
     Color[5] used;
     calculateScore(allwords, wordlist, word, used, 0, score, beta, ab_depth);
+    if (mt) mtx.lock();
     if (score <= alpha) {
       result.score = alpha;
+      if (mt) mtx.unlock();
       return true;
     }
     if (score <= beta) {
@@ -208,25 +215,43 @@ guess_result make_guesses(bool need_results)(string[] allwords, wordlist_t wordl
 	static if (need_results) {
 	  result.word = word;
 	}
+      static if (need_results) {
+	if (alpha_beta_depth) {
+	  writeln("New best guess: ", beta, " ", result.word);
+	}
       }
-      // static if (need_results) {
-      // 	if (alpha_beta_depth) {
-      // 	  writeln("New best guess: ", beta, " ", result.word);
-      // 	}
-      // }
+      }
     }
+    if (mt) mtx.unlock();
     return false;
   }
   if (hard_mode) {
-    foreach(word; wordlist) {
-      if (test_result(word)) {
-	return result;
+    if (alpha_beta_depth == ab_depth) {
+      writeln("Parallel");
+      auto words = wordlist[].array;
+      foreach(word; parallel(words, 1)) {
+	auto new_wordlist = new wordlist_t(wordlist[].array);
+	test_result!true(word, new_wordlist);
+      }
+    } else {
+      foreach(word; wordlist) {
+	if (test_result(word, wordlist)) {
+	  return result;
+	}
       }
     }
   } else {
-    foreach(word; allwords) {
-      if (test_result(word)) {
-	return result;
+    if (alpha_beta_depth == ab_depth) {
+      writeln("Parallel");
+      foreach(word; parallel(allwords, 1)) {
+	auto new_wordlist = new wordlist_t(wordlist[].array);
+	test_result!true(word, new_wordlist);
+      }
+    } else {
+      foreach(word; allwords) {
+	if (test_result(word, wordlist)) {
+	  return result;
+	}
       }
     }
   }
@@ -277,6 +302,8 @@ void run_test(string[] answers, string[] guesses) {
 void run_solver(string[] answers, string[] guesses) {
   wordlist_t wl = new wordlist_t(answers);
 
+  bool first = true;
+
   while (wl.length > 1) {
     // Output remaining
     writeln("Remaining: ", wl.length);
@@ -285,8 +312,11 @@ void run_solver(string[] answers, string[] guesses) {
     }
 
     // Calculate guess
+    if (!first) {
     auto minword = make_guesses!true(guesses, wl, ulong.min, ulong.max, alpha_beta_depth).word;
     writeln("Best guesses: ", minword);
+    }
+    first = false;
 
     // User input
     writeln("Input a guess: ");
@@ -302,9 +332,9 @@ void run_solver(string[] answers, string[] guesses) {
   }
 }
 
-bool hard_mode = false;
-bool test_runner = false;
-ulong alpha_beta_depth = 0;
+__gshared bool hard_mode = false;
+__gshared bool test_runner = false;
+__gshared ulong alpha_beta_depth = 0;
 void main(string[] args) {
   auto help = getopt(args, "hard", "Hard mode, must use hint information", &hard_mode, "tester",
       "Run the solver on all words", &test_runner, "depth",
