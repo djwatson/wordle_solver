@@ -83,7 +83,9 @@ tolar aloes
 hard mode:
 stole
 
+depth 20 hard mode: laden (trump), focal, model
 At level 3, almost any reasonable combination of 3 guesses results in
 worst-case of 3 words or less.  
 
-
+laden, riots, gimpy, chuck
+rebut, flick, mason

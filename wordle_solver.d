@@ -135,10 +135,11 @@ bool calculateScore(string[] allwords, wordlist_t cur_list, ref string word, ref
   // We can end early if we're smaller than the current max list.
   auto filters_applied = apply_colors!false(word, used, cur_list);
   ulong score;
-  if (ab_depth > 0) {
+  if (ab_depth > 0 && cur_list.length > 1) {
     score = make_guesses!false(allwords, cur_list, alpha, beta, ab_depth-1).score;
   } else {
     score = cur_list.length;
+    score += (alpha_beta_depth - ab_depth) * allwords.length;
   }
   if (score >= beta) {
     alpha = beta;
@@ -278,7 +279,7 @@ void run_test(string[] answers, string[] guesses) {
   foreach (word; answers) {
     wordlist_t wordlist = new wordlist_t(answers);
 
-    string guess = "raise";
+    string guess = "laden";
     int iters = 0;
     //writeln("Current word: ", word);
     while (true) {
@@ -301,8 +302,6 @@ void run_test(string[] answers, string[] guesses) {
 // Just a command-line UI to the solver.
 void run_solver(string[] answers, string[] guesses) {
   wordlist_t wl = new wordlist_t(answers);
-
-  bool first = true;
 
   while (wl.length > 1) {
     // Output remaining
@@ -335,10 +334,11 @@ void run_solver(string[] answers, string[] guesses) {
 __gshared bool hard_mode = false;
 __gshared bool test_runner = false;
 __gshared ulong alpha_beta_depth = 0;
+__gshared bool first = false;
 void main(string[] args) {
   auto help = getopt(args, "hard", "Hard mode, must use hint information", &hard_mode, "tester",
       "Run the solver on all words", &test_runner, "depth",
-      "Alpha-beta depth", &alpha_beta_depth);
+		     "Alpha-beta depth", &alpha_beta_depth, "first", "Don't Guess first word?", &first);
   if (help.helpWanted) {
     defaultGetoptPrinter("Some information about the program.", help.options);
     return;
